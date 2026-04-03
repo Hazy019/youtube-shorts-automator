@@ -179,3 +179,11 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+client_secrets.json
+token_drive.json
+token_youtube.json
+.env
+temp_voiceover.mp3
+temp_video.mp4
+temp_video_final.mp4

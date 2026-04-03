@@ -28,6 +28,9 @@ PEXELS_API_KEY=your_pexels_key
 AWS_ACCESS_KEY_ID=your_aws_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret
 DISCORD_WEBHOOK_URL=your_discord_webhook # Optional: For emergency and success alerts
+CLIENT_SECRETS_JSON=your_client_secrets_json # Optional: For emergency and success alerts
+DRIVE_TOKEN_JSON=your_drive_token_json # Optional: For emergency and success alerts
+YOUTUBE_TOKEN_JSON=your_youtube_token_json # Optional: For emergency and success alerts
 ```
 
 ### 3. Google API Authentication
