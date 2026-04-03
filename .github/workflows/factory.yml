@@ -1,0 +1,41 @@
+name: Daily Hazy Chanel Factory
+
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  workflow_dispatch: 
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Recreate Auth Tokens
+        run: |
+          echo '${{ secrets.DRIVE_TOKEN_JSON }}' > token_drive.json
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token_youtube.json
+          echo '${{ secrets.CLIENT_SECRETS_JSON }}' > client_secrets.json
+
+      - name: Create Environment Variables
+        run: |
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
+          echo "ELEVENLABS_API_KEY=${{ secrets.ELEVENLABS_API_KEY }}" >> .env
+          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}" >> .env
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+          echo "DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}" >> .env
+
+      - name: Install Requirements and Run
+        run: |
+          pip install google-genai supabase python-dotenv requests boto3 edge-tts mutagen google-api-python-client google-auth-oauthlib google-auth-httplib2
+          python orchestrator.py
