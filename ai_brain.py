@@ -12,100 +12,132 @@ load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-def get_new_topic(category):
-    blox_fruit_topics = [
-        "3 secret Blox Fruits mechanics the game never actually teaches you...",
-        "The exact mathematical probability of rolling a Kitsune fruit...",
-        "The hidden lore behind the Third Sea that 99% of players completely missed...",
-        "Why the Buddha fruit is statistically the most broken item in Roblox history...",
-        "The actual reason why max bounty players use this specific fighting style..."
-    ]
+def validate_viral_package(data):
+    required_keys = ["title", "description", "segments", "tags"]
+    if not all(key in data for key in required_keys):
+        return False
+    if not isinstance(data["segments"], list) or len(data["segments"]) < 5:
+        return False
+    segment_keys = ["start", "end", "text", "voiceover", "text_effect", "position", "highlight_word"]
+    for s in data["segments"]:
+        if not all(key in s for key in segment_keys):
+            return False
+    return True
 
-    general_topics = [
-        "The physics behind why airplanes stay in the air during turbulence...",
-        "The biological reason why some people are naturally morning larks...",
-        "How the deep sea creatures survive under extreme atmospheric pressure...",
-        "The history of how the first computer programming language was created...",
-        "Why the human eye can distinguish more shades of green than any other color..."
-    ]
+def get_new_topic(category):
+    print(f"Generating dynamic topic for category: {category}...")
+    
+    try:
+        past_videos = supabase.table("videos").select("topic").order("created_at", desc=True).limit(30).execute()
+        used_topics = [v['topic'] for v in past_videos.data]
+    except Exception as e:
+        print(f"Warning: Could not fetch past topics: {e}")
+        used_topics = []
 
     if category == "gaming":
-        return random.choice(blox_fruit_topics)
+        theme = "Blox Fruits / Roblox secrets, mechanics, lore, and meta."
+        examples = """
+        - 3 secret Blox Fruits mechanics the game never actually teaches you...
+        - The exact mathematical probability of rolling a Kitsune fruit...
+        - The hidden lore behind the Third Sea that 99% of players completely missed...
+        - Why the Buddha fruit is statistically the most broken item in Roblox history...
+        - The actual reason why max bounty players use this specific fighting style...
+        """
     else:
-        return random.choice(general_topics)
+        theme = "Mind-blowing science, history, mystery, and fresh facts."
+        examples = """
+        - The physics behind why airplanes stay in the air during turbulence...
+        - The biological reason why some people are naturally morning larks...
+        - How the deep sea creatures survive under extreme atmospheric pressure...
+        - The history of how the first computer programming language was created...
+        - Why the human eye can distinguish more shades of green than any other color...
+        """
+    
+    prompt = f"""
+    Generate ONE unique, high-retention video topic for the category: {category}.
+    Theme: {theme}
+    
+    CRITICAL: The topic MUST sound exactly like these examples in tone and structure:
+    {examples}
+    
+    Rules:
+    - Target: Filipino / Southeast Asian audience (but script in English).
+    - Style: Hooky, mysterious, or authoritative.
+    - Exclude these recently used topics: {used_topics}
+    
+    Return ONLY the topic string. No punctuation at the end except an ellipsis (...).
+    """
+    
+    try:
+        response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+        return response.text.strip().replace('"', '')
+    except Exception as e:
+        print(f"Error generating topic: {e}. Falling back to default.")
+        return "The secret probability of rolling a Kitsune fruit..." if category == "gaming" else "The physics of airplane turbulence..."
 
 def generate_script(topic):
     prompt = f"""
-    SYSTEM INSTRUCTION:
-    You are a professional, authoritative, and educational YouTube Shorts creator. 
-    Your tone is expert, objective, and high-energy. 
+    You are a world-class YouTube Shorts creator. 
+    Your style is fast-paced, high-energy, and uses "Curiosity Gaps" to force follows.
     
-    STRICT CONTENT GUARDRAILS:
-    - NEVER generate content related to politics, religion, or sensitive social issues.
-    - ABSOLUTELY NO EMOJIS IN THE TEXT OR JSON.
+    STRICT RULES:
+    1. NO EMOJIS anywhere.
+    2. Caption 'text' MUST be 1-3 high-impact words MAX. Never a full sentence.
+    3. 'voiceover' is the full spoken text.
+    4. 5-7 segments total.
+    5. Segment 0 (The Hook) MUST end by second 3.0.
+    6. Segment 1 MUST contain a mid-video tease (e.g., "stay till the end to see why this changes everything").
+    7. The last segment MUST be a curiosity-gap CTA + engagement driver (LIKE/COMMENT/FOLLOW).
+    8. 'position': "top" (hooks/questions), "center" (facts), "bottom" (CTAs).
+    9. 'highlight_word': The single most important word in the caption.
+    10. 'tags': Exactly 15 topic-specific SEO tags.
+    11. 'description': 200+ words SEO-optimized.
 
     USER TOPIC: "{topic}"
 
-    STRUCTURE:
-    Create a 30 to 60-second script.
-    - segments: An array of 4 to 6 objects.
-    - Each object must have: "start", "end", "text" (max 5 words), "voiceover", and "text_effect".
-    - TEXT EFFECTS ALLOWED: "pop", "glitch", "typewriter".
-    - CRITICAL RULE: The very last segment MUST be a call to action telling the viewer to subscribe.
-
-    Return ONLY a valid JSON object matching this exact format:
+    Return JSON:
     {{
-        "title": "Professional title under 50 characters",
-        "description": "2-sentence SEO description with 3 hashtags.",
+        "title": "Short Title",
+        "description": "200-word SEO description",
+        "tags": ["tag1", "tag2", "tag3"],
         "segments": [
-            {{"start": 0, "end": 5, "text": "HOOK CAPTION HERE", "voiceover": "Spoken hook text goes here.", "text_effect": "pop"}},
-            {{"start": 5, "end": 15, "text": "CRAZY TECH FACT", "voiceover": "Spoken explanation goes here.", "text_effect": "glitch"}},
-            {{"start": 15, "end": 20, "text": "SUB FOR MORE INSIGHTS", "voiceover": "Subscribe to Hazy Chanel for more daily facts.", "text_effect": "pop"}}
+            {{
+                "start": 0, 
+                "end": 2.5, 
+                "text": "SECRET FOUND", 
+                "voiceover": "Did you know that there's a hidden mechanic in Blox Fruits that everyone misses?", 
+                "text_effect": "pop",
+                "position": "top",
+                "highlight_word": "SECRET"
+            }}
         ]
     }}
     """
-
-    max_retries = 3
-    for attempt in range(max_retries):
+    
+    for attempt in range(3):
         try:
             response = client.models.generate_content(
                 model='gemini-2.0-flash', 
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.7, 
-                    response_mime_type="application/json" 
-                )
+                contents=prompt, 
+                config=types.GenerateContentConfig(temperature=0.8, response_mime_type="application/json")
             )
-            
             viral_package = json.loads(response.text.strip())
             
-            try:
-                full_script_for_db = " ".join([s['voiceover'] for s in viral_package['segments']])
-                supabase.table("videos").insert({
-                    "topic": topic, 
-                    "title": viral_package['title'],
-                    "script": full_script_for_db
-                }).execute()
-            except Exception:
-                pass
+            if not validate_viral_package(viral_package):
+                print(f"Validation failed for attempt {attempt + 1}. Retrying...")
+                continue
                 
+            full_script = " ".join([s['voiceover'] for s in viral_package['segments']])
+            supabase.table("videos").insert({"topic": topic, "title": viral_package['title'], "script": full_script}).execute()
             return viral_package
-
         except Exception as e:
             print(f"Brain Error on attempt {attempt + 1}: {e}")
-            if attempt < max_retries - 1:
-                print("Rate limit/Error hit. Waiting 65 seconds...")
-                time.sleep(65)
-            else:
-                return None
+            time.sleep(75)
+            
+    return None
 
 def get_search_query(topic):
-    prompt = f"""
-    Based on this educational topic: '{topic}', you must choose the background footage. 
-    Rule 1: If the topic is about psychology, biology, history, output ONLY the exact word 'Parkour'.
-    Rule 2: Only if the topic requires visual proof (like space/technology), return a 2-word Pexels search query (e.g., 'Cinematic Space').
-    Output NOTHING ELSE but the 1 or 2 word search query. No punctuation.
-    """
+    prompt = f"Topic: '{topic}'. Return ONLY 'Parkour' for science/history, or a 2-word cinematic query for tech/space."
     try:
         response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
         return response.text.strip().replace(".", "").replace('"', '')

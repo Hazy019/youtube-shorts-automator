@@ -43,13 +43,15 @@ def produce_video(category):
     sfx_urls = get_sfx_urls(num_sfx=len(viral_package['segments']))
     bgm_url = get_bgm_url()
     
+    render_seed = int(time.time())
     final_video_url = make_cloud_video(
         audio_url, 
         video_urls, 
         sfx_urls, 
         bgm_url, 
         viral_package['segments'], 
-        duration
+        duration,
+        render_seed=render_seed
     )
     
     if final_video_url:
@@ -63,7 +65,7 @@ def produce_video(category):
                 f.write(chunk)
         
         print("\nInitiating YouTube Upload...")
-        youtube_link = upload_video(local_filename, viral_package['title'], viral_package['description'], category)
+        youtube_link = upload_video(local_filename, viral_package['title'], viral_package['description'], category, tags=viral_package.get('tags'))
         
         if youtube_link:
              ping_creator(youtube_link, viral_package['title'])

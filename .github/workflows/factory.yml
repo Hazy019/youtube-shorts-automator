@@ -34,8 +34,14 @@ jobs:
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
           echo "DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}" >> .env
+          echo "BUCKET_NAME=${{ secrets.BUCKET_NAME }}" >> .env
+          echo "SERVE_URL=${{ secrets.SERVE_URL }}" >> .env
+          echo "ROBLOX_FOLDER_ID=${{ secrets.ROBLOX_FOLDER_ID }}" >> .env
+          echo "PARKOUR_FOLDER_ID=${{ secrets.PARKOUR_FOLDER_ID }}" >> .env
+          echo "SFX_FOLDER_ID=${{ secrets.SFX_FOLDER_ID }}" >> .env
+          echo "BGM_FOLDER_ID=${{ secrets.BGM_FOLDER_ID }}" >> .env
 
       - name: Install Requirements and Run
         run: |
-          pip install google-genai supabase python-dotenv requests boto3 edge-tts mutagen google-api-python-client google-auth-oauthlib google-auth-httplib2
+          pip install -r requirements.txt
           python orchestrator.py

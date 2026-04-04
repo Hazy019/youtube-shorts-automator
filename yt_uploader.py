@@ -29,25 +29,27 @@ def get_authenticated_service():
             token.write(creds.to_json())
     return googleapiclient.discovery.build('youtube', 'v3', credentials=creds)
 
-def upload_video(video_path, title, description, video_category="gaming"):
+def upload_video(video_path, title, description, category="gaming", tags=None):
     print(f"\nPreparing to upload {video_path} to YouTube...")
     
     youtube = get_authenticated_service()
     if not youtube:
         return False
 
-    if video_category == "gaming":
-        yt_category_id = "20" 
-        smart_tags = ["shorts", "gaming", "roblox", "bloxfruits", "gameplay", "tips"]
-    else:
-        yt_category_id = "27" 
-        smart_tags = ["shorts", "education", "facts", "science", "psychology", "insight"]
+    # Dynamic tags from Gemini or defaults if failed
+    if not tags:
+        if category == "gaming":
+            tags = ["shorts", "gaming", "roblox", "bloxfruits"]
+        else:
+            tags = ["shorts", "education", "facts", "science"]
+
+    yt_category_id = "20" if category == "gaming" else "27"
 
     request_body = {
         "snippet": {
             "title": f"{title} #Shorts",
             "description": f"{description}\n\n#Shorts #trends #hazychanel",
-            "tags": smart_tags,                     
+            "tags": tags,                     
             "categoryId": yt_category_id         
         },
         "status": {
@@ -68,8 +70,9 @@ def upload_video(video_path, title, description, video_category="gaming"):
         print(f"Uploading to YouTube as Category {yt_category_id}... (This might take a minute)")
         response = request.execute()
         print(f"SUCCESS! Video uploaded to YouTube!")
-        print(f"Video Link: https://youtu.be/{response['id']}")
-        return True
+        video_link = f"https://youtu.be/{response['id']}"
+        print(f"Video Link: {video_link}")
+        return video_link
     except googleapiclient.errors.HttpError as e:
         print(f"YouTube Upload Error: {e}")
         return False

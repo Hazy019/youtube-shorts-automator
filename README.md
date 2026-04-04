@@ -29,8 +29,11 @@ ELEVENLABS_API_KEY=your_elevenlabs_key
 PEXELS_API_KEY=your_pexels_key
 AWS_ACCESS_KEY_ID=your_aws_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret
-DISCORD_WEBHOOK_URL=your_discord_webhook # For emergency and success alerts
-BGM_FOLDER_ID=your_bgm_folder_id # Google Drive ID for background music
+DISCORD_WEBHOOK_URL=your_discord_webhook 
+BGM_FOLDER_ID=your_bgm_folder_id 
+ROBLOX_FOLDER_ID=your_roblox_folder_id
+PARKOUR_FOLDER_ID=your_parkour_folder_id
+SFX_FOLDER_ID=your_sfx_folder_id
 ```
 
 ### 3. Google API Authentication

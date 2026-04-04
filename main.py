@@ -1,3 +1,4 @@
+import os
 import time
 import math
 from remotion_lambda import RemotionClient, RenderMediaParams
@@ -6,7 +7,7 @@ SERVE_URL = os.getenv("SERVE_URL")
 FUNCTION_NAME = "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec"
 REGION = "us-east-1"
 
-def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_data, duration_seconds):
+def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_data, duration_seconds, render_seed=0):
     client = RemotionClient(region=REGION, serve_url=SERVE_URL, function_name=FUNCTION_NAME)
     
     total_frames = math.ceil(duration_seconds * 30) + 15
@@ -27,6 +28,7 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
             "sfxUrls": sfx_urls,
             "bgmUrl": bgm_url,
             "segments": segments_data,  
+            "renderSeed": render_seed,
             "effects": {
                 "zoom": True,           
                 "transition": "fade",    
