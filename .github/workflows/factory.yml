@@ -2,8 +2,8 @@ name: Daily Hazy Chanel Factory
 
 on:
   schedule:
-    - cron: '0 14 * * *'
-  workflow_dispatch: 
+    - cron: '0 22 * * *'
+  workflow_dispatch:
 
 jobs:
   build-and-publish:

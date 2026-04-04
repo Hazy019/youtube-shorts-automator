@@ -6,7 +6,7 @@ SERVE_URL = "https://remotionlambda-useast1-d18tz22nyq.s3.us-east-1.amazonaws.co
 FUNCTION_NAME = "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec"
 REGION = "us-east-1"
 
-def make_cloud_video(voice_url, background_urls, caption_text, duration_seconds):
+def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_data, duration_seconds):
     client = RemotionClient(region=REGION, serve_url=SERVE_URL, function_name=FUNCTION_NAME)
     
     total_frames = math.ceil(duration_seconds * 30) + 15
@@ -24,11 +24,13 @@ def make_cloud_video(voice_url, background_urls, caption_text, duration_seconds)
         input_props={
             "audioUrl": voice_url, 
             "videoUrls": background_urls, 
-            "text": caption_text,
+            "sfxUrls": sfx_urls,
+            "bgmUrl": bgm_url,
+            "segments": segments_data,  
             "effects": {
-                "zoom": True,
-                "transition": "fade",
-                "textStyle": "bold"
+                "zoom": True,           
+                "transition": "fade",    
+                "textStyle": "bold"      
             }
         }
     )

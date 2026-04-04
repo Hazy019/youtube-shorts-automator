@@ -20,7 +20,7 @@ async def _generate_edge_tts_async(text, output_file):
 
 def check_elevenlabs_quota(api_key):
     try:
-        url = "[https://api.elevenlabs.io/v1/user/subscription](https://api.elevenlabs.io/v1/user/subscription)"
+        url = "https://api.elevenlabs.io/v1/user/subscription"
         headers = {"xi-api-key": api_key}
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
@@ -49,7 +49,7 @@ def generate_voiceover(script_text):
         print("Generating premium ElevenLabs voice...")
         voice_ids = ["IKne3meq5aSn9XLyUdCD", "Xb7hH8MSUJpSbSDYk0k2", "pNInz6obpgDQGcFmaJgB"]
         selected_voice = random.choice(voice_ids)
-        url = f"[https://api.elevenlabs.io/v1/text-to-speech/](https://api.elevenlabs.io/v1/text-to-speech/){selected_voice}"
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{selected_voice}"
         
         headers = {"Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": api_key}
         data = {

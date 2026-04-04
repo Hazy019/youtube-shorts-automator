@@ -14,10 +14,16 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           videoUrls: ["https://www.w3schools.com/html/mov_bbb.mp4"],
           audioUrl: "https://www.w3schools.com/html/horse.mp3",
-          text: "WELCOME TO HAZY CHANEL",
+          sfxUrls: [],
+          bgmUrl: "",
+          segments: [
+            { start: 0, end: 5, text: "HOOK WITH POP", text_effect: "pop" },
+            { start: 5, end: 10, text: "TECH GLITCH TEXT", text_effect: "glitch" },
+            { start: 10, end: 60, text: "LORE TYPEWRITER", text_effect: "typewriter" }
+          ],
           effects: {
             zoom: true,
-            transition: 'fade',
+            transition: 'flash',
             textStyle: 'bold'
           }
         }}

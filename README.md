@@ -3,11 +3,13 @@
 A fully automated production pipeline for generating fact and insight YouTube Shorts using AI, AWS Remotion, and Google Cloud APIs.
 
 ## Features
-- **AI Brain**: Gemini 2.0 Flash creates engaging, educational scripts and identifies visually appealing themes.
-- **Dynamic Voiceover**: Generates voices through ElevenLabs with a built-in safety net fallback leveraging Microsoft Edge Neural TTS.
+- **AI Brain**: Gemini Flash creates engaging, educational scripts and identifies visually appealing themes.
+- **Dynamic Voiceover**: Generates professional voices through ElevenLabs with a built-in safety net fallback leveraging Microsoft Edge Neural TTS.
+- **Professional Audio Layering**: Automatically fetches and syncs SFX and background music (BGM) for high-retention cinematic editing.
 - **Smart B-Roll Engine**: Automatically syncs either user-uploaded background video from Google Drive (e.g., Roblox or Parkour clips) or fetches curated stock footage depending on the context of the script.
+- **Double Shift Mode**: Automated multi-category production (Gaming + General Facts) in a single run.
 - **Cloud Rendering**: Uses AWS Lambda + Remotion for instant, high-quality cloud video synthesis.
-- **Automated YouTube Publish**: Directly integrates with the YouTube Data API to schedule/upload the generated video.
+- **Automated YouTube Publish**: Directly integrates with the YouTube Data API with smart SEO tagging and categorization.
 
 ## Local Setup
 
@@ -27,10 +29,8 @@ ELEVENLABS_API_KEY=your_elevenlabs_key
 PEXELS_API_KEY=your_pexels_key
 AWS_ACCESS_KEY_ID=your_aws_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret
-DISCORD_WEBHOOK_URL=your_discord_webhook # Optional: For emergency and success alerts
-CLIENT_SECRETS_JSON=your_client_secrets_json # Optional: For emergency and success alerts
-DRIVE_TOKEN_JSON=your_drive_token_json # Optional: For emergency and success alerts
-YOUTUBE_TOKEN_JSON=your_youtube_token_json # Optional: For emergency and success alerts
+DISCORD_WEBHOOK_URL=your_discord_webhook # For emergency and success alerts
+BGM_FOLDER_ID=your_bgm_folder_id # Google Drive ID for background music
 ```
 
 ### 3. Google API Authentication
