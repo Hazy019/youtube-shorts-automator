@@ -16,11 +16,10 @@ from discord_bot import ping_error
 
 load_dotenv()
 
-BUCKET_NAME = "remotionlambda-useast1-d18tz22nyq"
-ROBLOX_FOLDER_ID = "1jShwAPd6PYHa-61truPa9me07EVBQPxT" 
-PARKOUR_FOLDER_ID = "1-uHRRXPZJanyCTLV_ujC9DJ-6BdGYoTt"
-
-SFX_FOLDER_ID = "10qRIBelbs0gSRVawBeAwp8HOR0M1gxdx"
+BUCKET_NAME = os.getenv("BUCKET_NAME")
+ROBLOX_FOLDER_ID = os.getenv("ROBLOX_FOLDER_ID")
+PARKOUR_FOLDER_ID = os.getenv("PARKOUR_FOLDER_ID")
+SFX_FOLDER_ID = os.getenv("SFX_FOLDER_ID")
 BGM_FOLDER_ID = os.getenv("BGM_FOLDER_ID")
 
 SCOPES = ['https://www.googleapis.com/auth/drive']

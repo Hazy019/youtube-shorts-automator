@@ -2,7 +2,7 @@ import time
 import math
 from remotion_lambda import RemotionClient, RenderMediaParams
 
-SERVE_URL = "https://remotionlambda-useast1-d18tz22nyq.s3.us-east-1.amazonaws.com/sites/hazy-chanel-v1/index.html"
+SERVE_URL = os.getenv("SERVE_URL")
 FUNCTION_NAME = "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec"
 REGION = "us-east-1"
 
