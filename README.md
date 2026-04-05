@@ -1,74 +1,62 @@
-# Hazy Chanel Automator
+# Hazy Chanel Automator V5 🚀
 
-A fully automated production pipeline for generating fact and insight YouTube Shorts using AI, AWS Remotion, and Google Cloud APIs.
+Fully automated short-form video factory for YouTube Shorts and TikTok.
 
-## Features
-- **AI Brain**: Gemini Flash creates engaging, educational scripts and identifies visually appealing themes.
-- **Dynamic Voiceover**: Generates professional voices through ElevenLabs with a built-in safety net fallback leveraging Microsoft Edge Neural TTS.
-- **Professional Audio Layering**: Automatically fetches and syncs SFX and background music (BGM) for high-retention cinematic editing.
-- **Smart B-Roll Engine**: Automatically syncs either user-uploaded background video from Google Drive (e.g., Roblox or Parkour clips) or fetches curated stock footage depending on the context of the script.
-- **Double Shift Mode**: Automated multi-category production (Gaming + General Facts) in a single run.
-- **Cloud Rendering**: Uses AWS Lambda + Remotion for instant, high-quality cloud video synthesis.
-- **Automated YouTube Publish**: Directly integrates with the YouTube Data API with smart SEO tagging and categorization.
+## Core Features
+- **AI Brain (Gemini 1.5 Flash)**: Merged 3-in-1 generation for Topic, Script, and B-Roll Keywords.
+- **Quota Optimized**: Uses only 2 Gemini calls per day (Gaming + General Facts).
+- **Roblox & Parkour Routing**: Smart asset selection for gaming and universal facts.
+- **Analytics Loop**: Weekly feedback loop to track views and retention (YouTube).
+- **Self-Healing Auth**: Consolidated Google token refresh toolkit.
 
-## Local Setup
+## Tech Stack
+- **AI**: Google Gemini (1.5 Flash)
+- **Voice**: ElevenLabs / Edge TTS Fallback
+- **Storage**: AWS S3 & Google Drive
+- **Render**: Remotion Lambda (AWS)
+- **Database**: Supabase
+- **Syndication**: YouTube Data API v3 & TikTok (via Playwright)
 
-### 1. Requirements
-Ensure you are using Python 3.10+ and install all necessary dependencies:
-```bash
-pip install -r requirements.txt
-```
+## Setup & Maintenance
 
-### 2. Environment Variables (.env)
-Create a `.env` file in the root directory containing the following:
-```ini
-GEMINI_API_KEY=your_gemini_key
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_key
-ELEVENLABS_API_KEY=your_elevenlabs_key
-PEXELS_API_KEY=your_pexels_key
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret
-DISCORD_WEBHOOK_URL=your_discord_webhook 
-BGM_FOLDER_ID=your_bgm_folder_id 
-ROBLOX_FOLDER_ID=your_roblox_folder_id
-PARKOUR_FOLDER_ID=your_parkour_folder_id
-SFX_FOLDER_ID=your_sfx_folder_id
-```
+### 1. GitHub Secrets Configuration
+To deploy this via GitHub Actions, add these EXACT keys to your repository under **Settings > Secrets and variables > Actions**:
 
-### 3. Google API Authentication
-This application uses Google Drive (to get background videos) and YouTube (to upload finished videos). You need a valid Google API project with OAuth credentials.
-1. Download your `client_secrets.json` from the Google Cloud Console and place it in the root directory.
-2. Run the authentication script locally:
-```bash
-python tools/update_tokens.py
-```
-3. A browser tab will open for Google Auth. After giving access, this tool generates two files: `token_drive.json` and `token_youtube.json`.
+#### API Keys & URLs
+- `GEMINI_API_KEY`: Your Google Gemini API Key
+- `ELEVENLABS_API_KEY`: Your ElevenLabs API Key
+- `PEXELS_API_KEY`: Your Pexels API Key
+- `SUPABASE_URL`: Your Supabase Project URL
+- `SUPABASE_KEY`: Your Supabase Service Key
+- `DISCORD_WEBHOOK_URL`: Your Discord Webhook for alerts
 
-## Usage & Deployment
+#### AWS Remotion Lambda details
+- `AWS_ACCESS_KEY_ID`: AWS Access Key
+- `AWS_SECRET_ACCESS_KEY`: AWS Secret Key
+- `BUCKET_NAME`: Remotion AWS S3 Bucket Name
+- `SERVE_URL`: Webpack Serve URL
 
-### Running Locally
-To generate one video and upload it:
+#### Google Drive Folder IDs
+- `ROBLOX_FOLDER_ID`: Folder ID for gaming b-roll
+- `PARKOUR_FOLDER_ID`: Folder ID for fallback/educational b-roll
+- `SFX_FOLDER_ID`: Folder ID for sound effects
+- `BGM_FOLDER_ID`: Folder ID for background music
+
+#### Complex JSON Credentials
+1. `CLIENT_SECRETS_JSON`: The raw JSON content of your Google Cloud `client_secrets.json`
+2. `DRIVE_TOKEN_JSON`: The raw JSON content of your `token_drive.json`
+3. `YOUTUBE_TOKEN_JSON`: The raw JSON content of your `token_youtube.json`
+4. `TIKTOK_COOKIES_JSON`: The raw JSON content of your `tiktok_cookies.json`
+
+*(To generate the last three JSON files, you can run `python tools/update_tokens.py` and `python tools/capture_tiktok_cookies.py` locally and then copy their content).*
+
+### 3. Production Run
+The factory runs automatically via GitHub Actions at 7 AM and 7 PM ET. To trigger manually:
 ```bash
 python orchestrator.py
 ```
 
-### GitHub Actions (CI/CD)
-This project is configured to run automatically once a day using GitHub Actions (`.github/workflows/factory.yml`). 
-
-To make this work securely, you must configure **GitHub Repository Secrets**. Look inside the generated `token_drive.json` and `token_youtube.json` files and paste their exact JSON contents into the respective GitHub Secrets.
-
-**Required GitHub Runtime Secrets:**
-- `DRIVE_TOKEN_JSON`
-- `YOUTUBE_TOKEN_JSON`
-- `CLIENT_SECRETS_JSON`
-- `GEMINI_API_KEY`
-- `SUPABASE_URL`
-- `SUPABASE_KEY`
-- `ELEVENLABS_API_KEY`
-- `PEXELS_API_KEY`
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `DISCORD_WEBHOOK_URL` 
-
-When setting up your automated pipeline, periodically run `tools/update_tokens.py` locally and update the Secrets if your refresh tokens expire.
+## Deleted Features
+- **Instagram**: Removed to prioritize YouTube/TikTok and reduce account flag risks.
+- **Minecraft**: All non-Roblox b-roll is now routed to the Parkour folder for higher retention.
+- **Legacy Auth**: Multiple fragmented auth scripts replaced by `tools/update_tokens.py`.

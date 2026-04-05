@@ -1,0 +1,34 @@
+name: Weekly Hazy Chanel Analytics
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Every Monday at 9:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-feedback-loop:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Recreate Auth Tokens
+        run: |
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token_youtube.json
+
+      - name: Create Environment Variables
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
+          echo "DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}" >> .env
+
+      - name: Install Requirements and Sync
+        run: |
+          pip install -r requirements.txt
+          python analytics.py

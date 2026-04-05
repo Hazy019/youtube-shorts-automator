@@ -2,7 +2,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-# Load your secret key
+
 load_dotenv()
 api_key = os.getenv("ELEVENLABS_API_KEY")
 
@@ -19,7 +19,7 @@ def fetch_my_voices():
         print(" SUCCESS! Here are the Voice IDs you can use:\n")
         print("-" * 40)
         
-        # We only want to print the free, premade voices
+
         for voice in voices:
             if voice['category'] == 'premade':
                 print(f" Name: {voice['name']}")

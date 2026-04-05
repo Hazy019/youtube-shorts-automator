@@ -98,10 +98,11 @@ export const MyComp: React.FC<{
   videoUrls: string[]; 
   sfxUrls?: string[]; 
   bgmUrl?: string; 
+  bgmVolume?: number;
   segments: Segment[]; 
   effects: EditorEffects;
   renderSeed?: number;
-}> = ({ audioUrl, videoUrls, sfxUrls, bgmUrl, segments, effects, renderSeed = 0 }) => {
+}> = ({ audioUrl, videoUrls, sfxUrls, bgmUrl, bgmVolume = 0.12, segments, effects, renderSeed = 0 }) => {
   const { fps, durationInFrames } = useVideoConfig();
   const framesPerClip = Math.ceil(durationInFrames / (videoUrls?.length || 1));
 
@@ -118,18 +119,28 @@ export const MyComp: React.FC<{
       <Vignette />
       <ProgressBar />
 
-      <Audio src={audioUrl} />
-      {bgmUrl && <Audio src={bgmUrl} volume={0.12} loop />}
+      {}
+      <Audio src={audioUrl} volume={1.0} />
+      {}
+      {bgmUrl && <Audio src={bgmUrl} volume={bgmVolume} loop />}
       
       {segments?.map((s, i) => {
         const startFrame = Math.round(s.start * fps);
         const duration = Math.round((s.end - s.start) * fps);
         if (duration <= 0) return null;
 
+        
+        
+        const sfxDuration = Math.min(duration, 45);
+
         return (
           <Sequence key={i} from={startFrame} durationInFrames={duration}>
             <AnimatedText segment={s} effects={effects} />
-            {sfxUrls && sfxUrls.length > 0 && <Audio src={sfxUrls[i % sfxUrls.length]} volume={0.6} />}
+            {sfxUrls && sfxUrls.length > 0 && i % 2 === 0 && (
+              <Sequence from={0} durationInFrames={sfxDuration}>
+                <Audio src={sfxUrls[i % sfxUrls.length]} volume={0.20} />
+              </Sequence>
+            )}
           </Sequence>
         );
       })}

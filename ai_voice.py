@@ -36,7 +36,7 @@ def generate_voiceover(script_text):
     use_fallback = False
     
     usage_ratio = check_elevenlabs_quota(api_key)
-    if usage_ratio >= 0.90:
+    if usage_ratio >= 0.95:
         use_fallback = True
     else:
         voice_ids = ["IKne3meq5aSn9XLyUdCD", "Xb7hH8MSUJpSbSDYk0k2", "pNInz6obpgDQGcFmaJgB"]

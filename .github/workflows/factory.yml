@@ -2,7 +2,7 @@ name: Daily Hazy Chanel Factory
 
 on:
   schedule:
-    - cron: '0 22 * * *'
+    - cron: '0 16 * * *'   # 12 PM ET - US noon / peak lunch time
   workflow_dispatch:
 
 jobs:
@@ -10,38 +10,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
       - name: Recreate Auth Tokens
+        env:
+          DRIVE_TOKEN: ${{ secrets.DRIVE_TOKEN_JSON }}
+          YOUTUBE_TOKEN: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+          CLIENT_SECRETS: ${{ secrets.CLIENT_SECRETS_JSON }}
         run: |
-          echo '${{ secrets.DRIVE_TOKEN_JSON }}' > token_drive.json
-          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token_youtube.json
-          echo '${{ secrets.CLIENT_SECRETS_JSON }}' > client_secrets.json
+          echo "$DRIVE_TOKEN" > token_drive.json
+          echo "$YOUTUBE_TOKEN" > token_youtube.json
+          echo "$CLIENT_SECRETS" > client_secrets.json
 
-      - name: Create Environment Variables
+      - name: Install System Dependencies
         run: |
-          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
-          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
-          echo "ELEVENLABS_API_KEY=${{ secrets.ELEVENLABS_API_KEY }}" >> .env
-          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}" >> .env
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
-          echo "DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}" >> .env
-          echo "BUCKET_NAME=${{ secrets.BUCKET_NAME }}" >> .env
-          echo "SERVE_URL=${{ secrets.SERVE_URL }}" >> .env
-          echo "ROBLOX_FOLDER_ID=${{ secrets.ROBLOX_FOLDER_ID }}" >> .env
-          echo "PARKOUR_FOLDER_ID=${{ secrets.PARKOUR_FOLDER_ID }}" >> .env
-          echo "SFX_FOLDER_ID=${{ secrets.SFX_FOLDER_ID }}" >> .env
-          echo "BGM_FOLDER_ID=${{ secrets.BGM_FOLDER_ID }}" >> .env
+          sudo apt-get update
+          sudo apt-get install -y libasound2 libnss3 libatk1.0-0 libatk-bridge2.0-0 \
+            libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+            libxrandr2 libgbm1 libpango-1.0-0 libcairo2
 
-      - name: Install Requirements and Run
+      - name: Install Python Requirements and Playwright
         run: |
           pip install -r requirements.txt
-          python orchestrator.py
+          playwright install chromium
+
+      - name: Run Factory
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
+          SERVE_URL: ${{ secrets.SERVE_URL }}
+          ROBLOX_FOLDER_ID: ${{ secrets.ROBLOX_FOLDER_ID }}
+          PARKOUR_FOLDER_ID: ${{ secrets.PARKOUR_FOLDER_ID }}
+          SFX_FOLDER_ID: ${{ secrets.SFX_FOLDER_ID }}
+          BGM_FOLDER_ID: ${{ secrets.BGM_FOLDER_ID }}
+          TIKTOK_COOKIES_JSON: ${{ secrets.TIKTOK_COOKIES_JSON }}
+          GITHUB_ACTIONS: "true"
+        run: python orchestrator.py

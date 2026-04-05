@@ -8,7 +8,35 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 from discord_bot import ping_error
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.force-ssl"
+]
+
+def post_and_pin_comment(youtube, video_id, text):
+    try:
+        print(f"Posting engagement comment to video {video_id}...")
+        comment_response = youtube.commentThreads().insert(
+            part="snippet",
+            body={
+                "snippet": {
+                    "videoId": video_id,
+                    "topLevelComment": {
+                        "snippet": {
+                            "textOriginal": text
+                        }
+                    }
+                }
+            }
+        ).execute()
+        
+
+
+        print("Engagement comment posted successfully!")
+        return True
+    except Exception as e:
+        print(f"Failed to post/pin comment: {e}")
+        return False
 
 def get_authenticated_service():
     creds = None
@@ -20,7 +48,7 @@ def get_authenticated_service():
             creds.refresh(Request())
         else:
             if os.getenv("GITHUB_ACTIONS") == "true":
-                error_msg = "CRITICAL: Google Tokens expired. Run tools/update_tokens.py locally and update GitHub Secrets!"
+                error_msg = "CRITICAL: YouTube Tokens expired. Run tools/update_tokens.py locally and update GitHub Secrets!"
                 ping_error(error_msg, "YouTube Auth")
                 raise Exception(error_msg)
             flow = InstalledAppFlow.from_client_secrets_file('client_secrets.json', SCOPES)
@@ -36,21 +64,21 @@ def upload_video(video_path, title, description, category="gaming", tags=None):
     if not youtube:
         return False
 
-    # Dynamic tags from Gemini or defaults if failed
+
     if not tags:
         if category == "gaming":
             tags = ["shorts", "gaming", "roblox", "bloxfruits"]
         else:
             tags = ["shorts", "education", "facts", "science"]
 
-    yt_category_id = "20" if category == "gaming" else "27"
+    category_id = "20" if category == "gaming" else "27"
 
     request_body = {
         "snippet": {
             "title": f"{title} #Shorts",
             "description": f"{description}\n\n#Shorts #trends #hazychanel",
             "tags": tags,                     
-            "categoryId": yt_category_id         
+            "categoryId": category_id         
         },
         "status": {
             "privacyStatus": "private", 
@@ -67,11 +95,17 @@ def upload_video(video_path, title, description, category="gaming", tags=None):
     )
 
     try:
-        print(f"Uploading to YouTube as Category {yt_category_id}... (This might take a minute)")
+        print(f"Uploading to YouTube as Category {category_id}... (This might take a minute)")
         response = request.execute()
+        video_id = response['id']
         print(f"SUCCESS! Video uploaded to YouTube!")
-        video_link = f"https://youtu.be/{response['id']}"
+        video_link = f"https://youtu.be/{video_id}"
         print(f"Video Link: {video_link}")
+        
+
+        engagement_text = "What did you NOT know before this? Drop it below 👇"
+        post_and_pin_comment(youtube, video_id, engagement_text)
+        
         return video_link
     except googleapiclient.errors.HttpError as e:
         print(f"YouTube Upload Error: {e}")

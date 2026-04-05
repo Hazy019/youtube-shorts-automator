@@ -7,7 +7,7 @@ SERVE_URL = os.getenv("SERVE_URL")
 FUNCTION_NAME = "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec"
 REGION = "us-east-1"
 
-def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_data, duration_seconds, render_seed=0):
+def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_data, duration_seconds, category="gaming", render_seed=0):
     client = RemotionClient(region=REGION, serve_url=SERVE_URL, function_name=FUNCTION_NAME)
     
     total_frames = math.ceil(duration_seconds * 30) + 15
@@ -16,17 +16,20 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
     if total_frames < 150: 
         print("ERROR: Video duration too short. Aborting render.", flush=True)
         return None
+        
+    bgm_volume = 0.10 if category == "gaming" else 0.07
     
     params = RenderMediaParams(
         serve_url=SERVE_URL,
         composition="MyComp",
         force_duration_in_frames=total_frames, 
-        concurrency=4,                 
+        concurrency=4,
         input_props={
             "audioUrl": voice_url, 
             "videoUrls": background_urls, 
             "sfxUrls": sfx_urls,
             "bgmUrl": bgm_url,
+            "bgmVolume": bgm_volume,
             "segments": segments_data,  
             "renderSeed": render_seed,
             "effects": {
@@ -45,7 +48,9 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
         
         if getattr(status, 'fatalErrorEncountered', False):
             error_data = getattr(status, 'errors', 'Unknown Error')
-            print(f"\nAWS LAMBDA FATAL ERROR: {error_data}", flush=True)
+
+            safe_error = str(error_data).encode('ascii', 'ignore').decode('ascii')
+            print(f"\nAWS LAMBDA FATAL ERROR: {safe_error}", flush=True)
             return None
             
         if status.done:

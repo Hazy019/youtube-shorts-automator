@@ -1,38 +1,51 @@
 import os
-from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 
-# Scopes for both Drive and YouTube
+
 SCOPES = [
     'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/youtube.upload'
+    'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube.force-ssl',
+    'https://www.googleapis.com/auth/yt-analytics.readonly'
 ]
 
 def force_refresh_tokens():
-    print("Initiating Google Token Refresh Protocol...")
+    print("="*40)
+    print("GOOGLE TOKEN REFRESH PROTOCOL (V5)")
+    print("="*40)
     
-    # Delete old tokens to force a fresh login
+    if not os.path.exists('client_secrets.json'):
+        print("ERROR: client_secrets.json missing. Download it from Google Cloud Console first!")
+        return
+
+
     for token_file in ['token_drive.json', 'token_youtube.json']:
         if os.path.exists(token_file):
-            os.remove(token_file)
-            print(f"Deleted old {token_file}")
+            try:
+                os.remove(token_file)
+                print(f"Deleted old {token_file}")
+            except:
+                pass
 
-    print("\nOpening browser for authentication. Please log in to your Google Account...")
+    print("\nOpening browser for authentication...")
+    print("Select your Google account and verify permissions for Drive + YouTube.")
+    
     flow = InstalledAppFlow.from_client_secrets_file('client_secrets.json', SCOPES)
     creds = flow.run_local_server(port=0)
 
-    # Save the new tokens
+
     with open('token_drive.json', 'w') as f:
         f.write(creds.to_json())
     with open('token_youtube.json', 'w') as f:
         f.write(creds.to_json())
 
-    print("\nSUCCESS! New tokens generated.")
-    print("1. Open token_drive.json and token_youtube.json")
-    print("2. Copy their contents")
-    print("3. Paste them into your GitHub Secrets (DRIVE_TOKEN_JSON & YOUTUBE_TOKEN_JSON)")
+    print("\n" + "="*40)
+    print("SUCCESS! AUTHENTICATION COMPLETE.")
+    print("="*40)
+    print("1. token_drive.json and token_youtube.json generated.")
+    print("2. Copy their contents to GitHub Secrets (DRIVE_TOKEN_JSON & YOUTUBE_TOKEN_JSON).")
+    print("3. Ensure your .env GEMINI_API_KEY is also updated.")
+    print("="*40)
 
 if __name__ == "__main__":
     force_refresh_tokens()

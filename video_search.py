@@ -5,16 +5,18 @@ import uuid
 import boto3
 import requests 
 from botocore.config import Config
-import googleapiclient.discovery
+from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from supabase import create_client, Client
 from dotenv import load_dotenv
 
 from discord_bot import ping_error
 
 load_dotenv()
+
+supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 ROBLOX_FOLDER_ID = os.getenv("ROBLOX_FOLDER_ID")
@@ -31,21 +33,25 @@ def get_drive_service():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
+        elif os.getenv("GITHUB_ACTIONS") == "true":
+            ping_error("Drive token expired in CI!", "Google Auth")
+            raise Exception("Drive token expired in CI")
         else:
-            if os.getenv("GITHUB_ACTIONS") == "true":
-                error_msg = "CRITICAL: Google Tokens expired. Run tools/update_tokens.py locally and update GitHub Secrets!"
-                ping_error(error_msg, "Google Auth")
-                raise Exception(error_msg)
+
+            from google_auth_oauthlib.flow import InstalledAppFlow
             flow = InstalledAppFlow.from_client_secrets_file('client_secrets.json', SCOPES)
             creds = flow.run_local_server(port=0)
-        with open('token_drive.json', 'w') as token:
-            token.write(creds.to_json())
-    return googleapiclient.discovery.build('drive', 'v3', credentials=creds)
+        with open('token_drive.json', 'w') as f:
+            f.write(creds.to_json())
+    return build('drive', 'v3', credentials=creds)
 
 def sync_drive_to_s3(target_folder, num_clips, media_type="video"):
+    if not target_folder:
+        print(f"Warning: No Drive Folder ID provided for {media_type}. Skipping sync.")
+        return []
+
     service = get_drive_service()
     
-    # Check if we are grabbing Video or Audio
     if media_type == "video":
         query = f"'{target_folder}' in parents and mimeType='video/mp4'"
         content_type = 'video/mp4'
@@ -61,6 +67,19 @@ def sync_drive_to_s3(target_folder, num_clips, media_type="video"):
     if not items:
         return []
 
+
+    try:
+        used_clips_resp = supabase.table("used_clips").select("file_id").execute()
+        used_ids = [c['file_id'] for c in used_clips_resp.data]
+        items = [i for i in items if i['id'] not in used_ids]
+    except Exception as e:
+        print(f"Warning: Clip dedup failed: {e}")
+
+    if not items:
+        print("No fresh clips left! Resetting dedup window or using defaults...")
+        results = service.files().list(q=query, fields="files(id, name)").execute()
+        items = results.get('files', [])
+
     random.shuffle(items)
     selected_items = items[:min(num_clips, len(items))]
     
@@ -69,7 +88,18 @@ def sync_drive_to_s3(target_folder, num_clips, media_type="video"):
     urls = []
     
     for item in selected_items:
-        print(f"Syncing {media_type}: {item['name']} to S3...")
+        safe_name = item['name'].encode('ascii', 'ignore').decode('ascii')
+        print(f"Syncing {media_type}: {safe_name} to S3...")
+        
+        try:
+            supabase.table("used_clips").insert({
+                "file_id": item['id'], 
+                "file_name": item['name'], 
+                "media_type": media_type
+            }).execute()
+        except Exception:
+            pass
+
         request = service.files().get_media(fileId=item['id'])
         fh = io.BytesIO()
         downloader = MediaIoBaseDownload(fh, request)
@@ -86,34 +116,44 @@ def sync_drive_to_s3(target_folder, num_clips, media_type="video"):
         
     return urls
 
-def get_background_videos(topic, keyword, num_clips=5):
-    gaming_keywords = ["blox fruit", "bloxfruits", "roblox", "robux", "kitsune", "buddha", "third sea", "bounty", "fruit", "mechanics"]
+def get_background_videos(topic, keyword, num_clips=3):
+
+    num_clips = min(num_clips, 3)
+
+
+    gaming_keywords = ["blox fruit", "bloxfruits", "roblox", "kitsune", "buddha",
+                       "third sea", "bounty", "fruit", "mechanics", "dough", "awakened"]
     is_roblox_topic = any(word in topic.lower() for word in gaming_keywords)
     
     if is_roblox_topic:
         print("Roblox Fact detected! Targeting ROBLOX Drive Folder...")
         return sync_drive_to_s3(ROBLOX_FOLDER_ID, num_clips, media_type="video")
-        
+
+    elif "parkour" in keyword.lower():
+        print("AI chose Parkour! Targeting PARKOUR Drive Folder...")
+        return sync_drive_to_s3(PARKOUR_FOLDER_ID, num_clips, media_type="video")
+
     else:
-        if "parkour" in keyword.lower():
-            print("AI chose Parkour! Targeting PARKOUR Drive Folder...")
-            return sync_drive_to_s3(PARKOUR_FOLDER_ID, num_clips, media_type="video")
-        else:
-            print(f"Universal Fact detected! Fetching Pexels footage for: {keyword}")
-            api_key = os.getenv("PEXELS_API_KEY")
-            url = f"https://api.pexels.com/videos/search?query={keyword}&per_page={num_clips}&orientation=portrait"
-            
-            try:
-                response = requests.get(url, headers={"Authorization": api_key}).json()
-                urls = []
-                if 'videos' in response and len(response['videos']) > 0:
-                    for video in response['videos']:
-                        urls.append(video['video_files'][0]['link'])
+        print(f"Universal Fact detected! Fetching Pexels footage for: {keyword}")
+        api_key = os.getenv("PEXELS_API_KEY")
+        url = f"https://api.pexels.com/videos/search?query={keyword}&per_page={num_clips}&orientation=portrait"
+        
+        try:
+            response = requests.get(url, headers={"Authorization": api_key}).json()
+            urls = []
+            if 'videos' in response and len(response['videos']) > 0:
+                for video in response['videos']:
+                    portrait = [f for f in video['video_files'] if f.get('height', 0) > f.get('width', 0)]
+                    link = portrait[0]['link'] if portrait else video['video_files'][0]['link']
+                    urls.append(link)
+                if len(urls) >= 2:
                     return urls
-                return []
-            except Exception as e:
-                print(f"Pexels Error: {e}")
-                return []
+            
+            print(f"Pexels insufficient videos for '{keyword}'. Falling back to Parkour Drive.")
+            return sync_drive_to_s3(PARKOUR_FOLDER_ID, num_clips, media_type="video")
+        except Exception as e:
+            print(f"Pexels Error: {e}. Falling back to Parkour Drive.")
+            return sync_drive_to_s3(PARKOUR_FOLDER_ID, num_clips, media_type="video")
 
 def get_sfx_urls(num_sfx=5):
     print("Fetching Professional Sound Effects...")
@@ -121,7 +161,7 @@ def get_sfx_urls(num_sfx=5):
 
 def get_bgm_url():
     if not BGM_FOLDER_ID:
-        print("No BGM_FOLDER_ID found in .env. Skipping background music.")
+        print("No BGM_FOLDER_ID found. Skipping background music.")
         return None
     print("Fetching Background Music from Drive...")
     urls = sync_drive_to_s3(BGM_FOLDER_ID, 1, media_type="audio")
