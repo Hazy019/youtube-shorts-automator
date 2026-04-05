@@ -101,7 +101,7 @@ def produce_video(category):
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
             
 
-            delay_tt = random.randint(180, 420)
+            delay_tt = random.randint(15, 30)
             print(f"\n[STEP 2/2] Waiting {delay_tt} seconds for TikTok syndication...")
             time.sleep(delay_tt) 
             
@@ -121,8 +121,8 @@ def start_factory():
     print("HAZY CHANEL AUTOMATION STARTING DOUBLE SHIFT...\n" + "="*40)
     try:
         produce_video("gaming")
-        print("\nTaking a 60-second break before rendering the second video...")
-        time.sleep(60)
+        print("\nTaking a 10-second break before rendering the second video...")
+        time.sleep(10)
         produce_video("general")
     except Exception as e:
         err_msg = f"Fatal Orchestrator Failure: {str(e)}"

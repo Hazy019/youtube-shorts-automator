@@ -2,7 +2,7 @@ name: Daily Hazy Chanel Factory
 
 on:
   schedule:
-    - cron: '0 16 * * *'   # 12 PM ET - US noon / peak lunch time
+    - cron: '0 16 * * *'
   workflow_dispatch:
 
 jobs:
