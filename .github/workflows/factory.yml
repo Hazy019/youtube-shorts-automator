@@ -52,6 +52,7 @@ jobs:
 
       - name: Install Playwright & System Deps
         run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
           python -m playwright install firefox --with-deps
 
       - name: Run Factory
