@@ -42,6 +42,8 @@ def run_weekly_analytics():
             .select("id, youtube_id, topic")
             .is_("avg_view_pct", "null")
             .not_("youtube_id", "is", "null")
+            .order("created_at", desc=True)
+            .limit(20)
             .execute()
         )
     except Exception as e:

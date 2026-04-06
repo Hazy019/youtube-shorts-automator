@@ -98,7 +98,7 @@ def produce_video(category, local_excludes=None):
             except Exception as e:
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
 
-            delay_tt = random.randint(180, 420)
+            delay_tt = random.randint(45, 90)
             print(f"\n[STEP 2/2] Waiting {delay_tt}s for TikTok syndication (anti-bot stagger)...")
             time.sleep(delay_tt)
 

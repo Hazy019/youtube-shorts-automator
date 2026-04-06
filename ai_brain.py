@@ -82,11 +82,6 @@ def generate_full_package(category, local_excludes=None):
         used_topics.extend(local_excludes)
     feedback = fetch_analytics_feedback()
 
-    used_topics = fetch_used_topics(category)
-    if local_excludes:
-        used_topics.extend(local_excludes)
-    feedback = fetch_analytics_feedback()
-
     if category == "gaming":
         theme = "Fascinating video game lore, hidden easter eggs, speedrunning records, mind-blowing mechanics, and developer secrets across all major titles."
         examples = """
