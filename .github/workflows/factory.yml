@@ -49,24 +49,13 @@ jobs:
             echo "$IG_SESSION" > ig_session.json
           fi
 
-      # ── System deps required by Firefox/Playwright on Ubuntu ─────────────
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            libasound2 libnss3 libatk1.0-0 libatk-bridge2.0-0 \
-            libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
-            libxrandr2 libgbm1 libpango-1.0-0 libcairo2 \
-            libdbus-glib-1-2 libxt6
-
       # ── Python packages (cached after first run) ──────────────────────────
       - name: Install Python Requirements
         run: pip install -r requirements.txt
 
-      # ── Playwright Firefox (cached after first run) ────────────────────────
-      # Use Python playwright CLI — NOT npx (which is Node.js)
-      - name: Install Playwright Firefox
-        run: playwright install firefox --with-deps
+      - name: Install Playwright & System Deps
+        run: |
+          python -m playwright install firefox --with-deps
 
       # ── Run the factory ───────────────────────────────────────────────────
       - name: Run Factory
