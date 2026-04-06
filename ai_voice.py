@@ -56,7 +56,7 @@ def generate_voiceover(script_text):
         try:
             asyncio.run(_generate_edge_tts_async(script_text, local_file))
         except Exception as e:
-            return None, 0, f"Both ElevenLabs and Edge TTS failed: {e}"
+            return None, 0, f"Error: {e}"
 
     raw_audio = AudioSegment.from_file(local_file)
     normalized_audio = effects.normalize(raw_audio)

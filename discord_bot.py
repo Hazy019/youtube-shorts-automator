@@ -18,7 +18,6 @@ def ping_creator(youtube_link, tiktok_status, ig_link, title):
         f"**Title:** {title}\n"
         f"🔴 **YouTube:** {youtube_link}\n"
         f"🎵 **TikTok:** {tiktok_status}\n"
-        f"📸 **Instagram:** {ig_link}"
     )
     data = {"content": message}
     

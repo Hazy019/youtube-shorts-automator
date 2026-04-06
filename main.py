@@ -17,7 +17,7 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
         print("ERROR: Video duration too short. Aborting render.", flush=True)
         return None
         
-    bgm_volume = 0.10 if category == "gaming" else 0.07
+    bgm_volume = 0.18 if category == "gaming" else 0.12
     
     params = RenderMediaParams(
         serve_url=SERVE_URL,
@@ -33,9 +33,9 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
             "segments": segments_data,  
             "renderSeed": render_seed,
             "effects": {
-                "zoom": True,           
-                "transition": "fade",    
-                "textStyle": "bold"      
+                "zoom": True,
+                "transition": "fade",
+                "textStyle": "bold"
             }
         }
     )

@@ -13,4 +13,5 @@ pydub==0.25.1
 remotion-lambda==4.0.443
 pydantic>=2.9.0
 playwright==1.42.0
-tiktok-uploader==0.1.0
+playwright-stealth==2.0.3
+tiktok-uploader>=1.2.0

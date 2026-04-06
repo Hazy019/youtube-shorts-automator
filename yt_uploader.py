@@ -77,11 +77,11 @@ def upload_video(video_path, title, description, category="gaming", tags=None):
         "snippet": {
             "title": f"{title} #Shorts",
             "description": f"{description}\n\n#Shorts #trends #hazychanel",
-            "tags": tags,                     
-            "categoryId": category_id         
+            "tags": tags,
+            "categoryId": category_id
         },
         "status": {
-            "privacyStatus": "private", 
+            "privacyStatus": "public",
             "selfDeclaredMadeForKids": False
         }
     }

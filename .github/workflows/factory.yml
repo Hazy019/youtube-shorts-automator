@@ -2,12 +2,13 @@ name: Daily Hazy Chanel Factory
 
 on:
   schedule:
-    - cron: '0 16 * * *'
+    - cron: '0 11 * * *'   # 7 AM ET — US morning
+    - cron: '0 23 * * *'   # 7 PM ET — US prime time
   workflow_dispatch:
 
 jobs:
   build-and-publish:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -16,44 +17,76 @@ jobs:
         with:
           python-version: '3.10'
 
+      # ── Cache pip (~2 min saved per run) ──────────────────────────────────
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-
+
+      # ── Cache Firefox browser (~1 min saved per run) ───────────────────────
+      # Key matches what we actually install (firefox, not chromium)
+      - name: Cache Playwright Firefox
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-firefox-${{ hashFiles('requirements.txt') }}
+          restore-keys: playwright-firefox-
+
+      # ── Restore auth files from GitHub Secrets ────────────────────────────
       - name: Recreate Auth Tokens
         env:
-          DRIVE_TOKEN: ${{ secrets.DRIVE_TOKEN_JSON }}
-          YOUTUBE_TOKEN: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+          DRIVE_TOKEN:    ${{ secrets.DRIVE_TOKEN_JSON }}
+          YOUTUBE_TOKEN:  ${{ secrets.YOUTUBE_TOKEN_JSON }}
           CLIENT_SECRETS: ${{ secrets.CLIENT_SECRETS_JSON }}
+          IG_SESSION:     ${{ secrets.IG_SESSION_JSON }}
         run: |
-          echo "$DRIVE_TOKEN" > token_drive.json
-          echo "$YOUTUBE_TOKEN" > token_youtube.json
+          echo "$DRIVE_TOKEN"    > token_drive.json
+          echo "$YOUTUBE_TOKEN"  > token_youtube.json
           echo "$CLIENT_SECRETS" > client_secrets.json
+          if [ -n "$IG_SESSION" ]; then
+            echo "$IG_SESSION" > ig_session.json
+          fi
 
+      # ── System deps required by Firefox/Playwright on Ubuntu ─────────────
       - name: Install System Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libasound2 libnss3 libatk1.0-0 libatk-bridge2.0-0 \
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libasound2 libnss3 libatk1.0-0 libatk-bridge2.0-0 \
             libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
-            libxrandr2 libgbm1 libpango-1.0-0 libcairo2
+            libxrandr2 libgbm1 libpango-1.0-0 libcairo2 \
+            libdbus-glib-1-2 libxt6
 
-      - name: Install Python Requirements and Playwright
-        run: |
-          pip install -r requirements.txt
-          playwright install chromium
+      # ── Python packages (cached after first run) ──────────────────────────
+      - name: Install Python Requirements
+        run: pip install -r requirements.txt
 
+      # ── Playwright Firefox (cached after first run) ────────────────────────
+      # Use Python playwright CLI — NOT npx (which is Node.js)
+      - name: Install Playwright Firefox
+        run: playwright install firefox --with-deps
+
+      # ── Run the factory ───────────────────────────────────────────────────
       - name: Run Factory
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
-          SERVE_URL: ${{ secrets.SERVE_URL }}
-          ROBLOX_FOLDER_ID: ${{ secrets.ROBLOX_FOLDER_ID }}
-          PARKOUR_FOLDER_ID: ${{ secrets.PARKOUR_FOLDER_ID }}
-          SFX_FOLDER_ID: ${{ secrets.SFX_FOLDER_ID }}
-          BGM_FOLDER_ID: ${{ secrets.BGM_FOLDER_ID }}
-          TIKTOK_COOKIES_JSON: ${{ secrets.TIKTOK_COOKIES_JSON }}
-          GITHUB_ACTIONS: "true"
+          GEMINI_API_KEY:         ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL:           ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:           ${{ secrets.SUPABASE_KEY }}
+          ELEVENLABS_API_KEY:     ${{ secrets.ELEVENLABS_API_KEY }}
+          PEXELS_API_KEY:         ${{ secrets.PEXELS_API_KEY }}
+          AWS_ACCESS_KEY_ID:      ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY:  ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          DISCORD_WEBHOOK_URL:    ${{ secrets.DISCORD_WEBHOOK_URL }}
+          BUCKET_NAME:            ${{ secrets.BUCKET_NAME }}
+          SERVE_URL:              ${{ secrets.SERVE_URL }}
+          ROBLOX_FOLDER_ID:       ${{ secrets.ROBLOX_FOLDER_ID }}
+          PARKOUR_FOLDER_ID:      ${{ secrets.PARKOUR_FOLDER_ID }}
+          SFX_FOLDER_ID:          ${{ secrets.SFX_FOLDER_ID }}
+          GAMING_BGM_FOLDER_ID:   ${{ secrets.GAMING_BGM_FOLDER_ID }}
+          GENERAL_BGM_FOLDER_ID:  ${{ secrets.GENERAL_BGM_FOLDER_ID }}
+          TIKTOK_COOKIES_JSON:    ${{ secrets.TIKTOK_COOKIES_JSON }}
+          TIKTOK_COOKIES_TXT:     ${{ secrets.TIKTOK_COOKIES_TXT }}
+          GITHUB_ACTIONS:         "true"
         run: python orchestrator.py
