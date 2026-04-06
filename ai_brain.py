@@ -11,8 +11,17 @@ load_dotenv()
 PRIMARY_MODEL  = "gemini-2.0-flash"
 FALLBACK_MODEL = "gemini-2.0-flash-lite"
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+_api_key = os.getenv("GEMINI_API_KEY")
+if not _api_key:
+    raise EnvironmentError("GEMINI_API_KEY not found in environment.")
+client = genai.Client(api_key=_api_key)
+
+def _get_supabase():
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY")
+    if not url or not key:
+        return None
+    return create_client(url, key)
 
 def clean_json_response(text):
     """Strips markdown fences. MUST run before every json.loads()."""
@@ -50,6 +59,9 @@ def validate_full_package(data):
     return True
 
 def fetch_analytics_feedback():
+    supabase = _get_supabase()
+    if not supabase:
+        return ""
     try:
         winners = supabase.table("videos").select("topic, script") \
             .gte("avg_view_pct", 75).order("avg_view_pct", desc=True).limit(3).execute()
@@ -66,6 +78,9 @@ def fetch_analytics_feedback():
         return ""
 
 def fetch_used_topics(category):
+    supabase = _get_supabase()
+    if not supabase:
+        return []
     try:
         rows = supabase.table("videos").select("topic") \
             .order("created_at", desc=True).limit(25).execute()
@@ -82,6 +97,7 @@ def generate_full_package(category, local_excludes=None):
     used_topics = fetch_used_topics(category)
     if local_excludes:
         used_topics.extend(local_excludes)
+    used_topics = used_topics[:20]
     feedback = fetch_analytics_feedback()
 
     if category == "gaming":
@@ -111,7 +127,7 @@ def generate_full_package(category, local_excludes=None):
         pace_guide  = "Build tension slowly, then drop the fact. Let the voiceover breathe."
 
     # THE MASTER PROMPT FOR GEMINI
-    prompt = f"""
+    prompt_header = f"""
 You are simultaneously a world-class YouTube Shorts scriptwriter AND a professional video editor.
 Your job is to generate a full production package — the script AND the edit timing in one pass.
 Target audience: INTERNATIONAL / US-FIRST. Platform: YouTube Shorts + TikTok.
@@ -180,14 +196,16 @@ Good examples for {category}:
 ══════════════════════════════════════════════════════════════
 OUTPUT — return ONLY this JSON, no markdown, no preamble:
 ══════════════════════════════════════════════════════════════
-{{
+"""
+
+    prompt_json = """{
   "topic": "Unique topic string ending in ...",
   "search_keyword": "Parkour",
   "title": "SEO title under 50 chars",
   "description": "200+ word SEO description with 3+ hashtags",
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10","tag11","tag12","tag13","tag14","tag15"],
   "segments": [
-    {{
+    {
       "start": 0.0,
       "end": 2.5,
       "text": "IMPOSSIBLE GLITCH",
@@ -195,8 +213,8 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
       "text_effect": "pop",
       "position": "top",
       "highlight_word": "IMPOSSIBLE"
-    }},
-    {{
+    },
+    {
       "start": 2.5,
       "end": 8.0,
       "text": "STAY WATCHING",
@@ -204,17 +222,17 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
       "text_effect": "typewriter",
       "position": "center",
       "highlight_word": "WATCHING"
-    }},
-    {{
+    },
+    {
       "start": 8.0,
       "end": 18.0,
       "text": "20 YEARS",
-      "voiceover": "For exactly twenty years, speedrunners knew this glitch existed, but nobody could reproduce it consistently because it required a specific sequence of button presses timed to the exact frame.",
+      "voiceover": "For exactly twenty years, speedrunners knew this glitch existed, but nobody could consistently reproduce it because it required a specific sequence of button presses timed to the exact frame.",
       "text_effect": "glitch",
       "position": "center",
       "highlight_word": "YEARS"
-    }},
-    {{
+    },
+    {
       "start": 18.0,
       "end": 38.0,
       "text": "ONE FRAME",
@@ -222,8 +240,8 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
       "text_effect": "glitch",
       "position": "top",
       "highlight_word": "FRAME"
-    }},
-    {{
+    },
+    {
       "start": 38.0,
       "end": 46.0,
       "text": "FOLLOW NOW",
@@ -291,5 +309,5 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
                 print(f"Brain error (attempt {attempt+1}): {e}")
                 time.sleep(15)
 
-    print("All attempts failed.")
-    return None
+    print(f"CRITICAL: All attempts failed. Last error: {last_err}")
+    raise RuntimeError(last_err)
