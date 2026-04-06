@@ -23,8 +23,9 @@ def produce_video(category, local_excludes=None):
 
     try:
         full_package = generate_full_package(category, local_excludes=local_excludes)
-        if not full_package:
-            msg = f"Gemini Package Generation failed for category: {category}"
+        if not full_package or "error" in full_package:
+            reason = full_package.get("error", "Unknown") if full_package else "None returned"
+            msg = f"Gemini Package Generation failed for category: {category}\nReason: {reason}"
             print(f"\nABORTING: {msg}")
             ping_error(msg, "Gemini Package")
             return False

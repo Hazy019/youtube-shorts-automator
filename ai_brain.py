@@ -41,10 +41,12 @@ def validate_full_package(data):
         # Auto-correct invalid text_effect so render never fails
         if s.get("text_effect") not in valid_effects:
             s["text_effect"] = "pop"
-        # Enforce hook timing rule
+        # Auto-truncate hook if too long (prevents loop)
         if i == 0 and s.get("end", 99) > 3.5:
-            print(f"Validation: Hook segment ends at {s['end']}s — must end ≤3.5s. Retrying.")
-            return False
+            print(f"Validation: Truncating long hook ({s['end']}s → 3.5s).")
+            s["end"] = 3.5
+            if len(data["segments"]) > 1:
+                data["segments"][1]["start"] = 3.5
     return True
 
 def fetch_analytics_feedback():
@@ -236,6 +238,7 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
 
     time.sleep(3)  # Burst protection
 
+    last_err = "All attempts failed (Validation Repeatedly Failed)"
     for attempt in range(3):
         model_id = PRIMARY_MODEL if attempt < 2 else FALLBACK_MODEL
         try:
@@ -248,10 +251,19 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
                     response_mime_type="application/json"
                 )
             )
+            
+            # Check for safety filter / empty response
+            if not response.text:
+                last_err = f"Empty response or BLOCKED by safety filter on {model_id}."
+                print(f"Brain retry: {last_err}")
+                time.sleep(10)
+                continue
+
             package = json.loads(clean_json_response(response.text))
 
             if not validate_full_package(package):
-                print("Validation failed — retrying...")
+                last_err = "Validation failed (invalid format or missing keys)"
+                print(f"Brain retry: {last_err}")
                 time.sleep(10)
                 continue
 
@@ -269,8 +281,9 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
             return package
 
         except Exception as e:
-            err = str(e).upper()
-            if "429" in err or "RESOURCE_EXHAUSTED" in err:
+            last_err = str(e)
+            err_up = last_err.upper()
+            if "429" in err_up or "RESOURCE_EXHAUSTED" in err_up:
                 wait = 65 + attempt * 30
                 print(f"Rate limit. Waiting {wait}s (same model)...")
                 time.sleep(wait)
