@@ -17,7 +17,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      # ── Cache pip (~2 min saved per run) ──────────────────────────────────
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -25,8 +24,6 @@ jobs:
           key: pip-${{ hashFiles('requirements.txt') }}
           restore-keys: pip-
 
-      # ── Cache Firefox browser (~1 min saved per run) ───────────────────────
-      # Key matches what we actually install (firefox, not chromium)
       - name: Cache Playwright Firefox
         uses: actions/cache@v4
         with:
@@ -34,7 +31,6 @@ jobs:
           key: playwright-firefox-${{ hashFiles('requirements.txt') }}
           restore-keys: playwright-firefox-
 
-      # ── Restore auth files from GitHub Secrets ────────────────────────────
       - name: Recreate Auth Tokens
         env:
           DRIVE_TOKEN:    ${{ secrets.DRIVE_TOKEN_JSON }}
@@ -49,15 +45,15 @@ jobs:
             echo "$IG_SESSION" > ig_session.json
           fi
 
-      # ── Python packages (cached after first run) ──────────────────────────
       - name: Install Python Requirements
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Install Playwright & System Deps
         run: |
           python -m playwright install firefox --with-deps
 
-      # ── Run the factory ───────────────────────────────────────────────────
       - name: Run Factory
         env:
           GEMINI_API_KEY:         ${{ secrets.GEMINI_API_KEY }}
