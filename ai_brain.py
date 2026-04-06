@@ -11,6 +11,9 @@ load_dotenv()
 PRIMARY_MODEL  = "gemini-2.0-flash"
 FALLBACK_MODEL = "gemini-2.0-flash-lite"
 
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
 def clean_json_response(text):
     """Strips markdown fences. MUST run before every json.loads()."""
     text = text.strip()

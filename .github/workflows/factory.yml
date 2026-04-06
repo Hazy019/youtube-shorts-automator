@@ -63,7 +63,10 @@ jobs:
           PEXELS_API_KEY:         ${{ secrets.PEXELS_API_KEY }}
           AWS_ACCESS_KEY_ID:      ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY:  ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          DISCORD_WEBHOOK_URL:    ${{ secrets.DISCORD_WEBHOOK_URL }}
+          WEBHOOK_LOGS:           ${{ secrets.WEBHOOK_LOGS || secrets.DISCORD_WEBHOOK_URL }}
+          WEBHOOK_ERRORS:         ${{ secrets.WEBHOOK_ERRORS || secrets.DISCORD_WEBHOOK_URL }}
+          WEBHOOK_POSTS:          ${{ secrets.WEBHOOK_POSTS || secrets.DISCORD_WEBHOOK_URL }}
+          WEBHOOK_INSIGHTS:       ${{ secrets.WEBHOOK_INSIGHTS || secrets.DISCORD_WEBHOOK_URL }}
           BUCKET_NAME:            ${{ secrets.BUCKET_NAME }}
           SERVE_URL:              ${{ secrets.SERVE_URL }}
           ROBLOX_FOLDER_ID:       ${{ secrets.ROBLOX_FOLDER_ID }}

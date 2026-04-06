@@ -3,15 +3,17 @@
 Fully automated short-form video factory for YouTube Shorts and TikTok.
 
 ## Core Features
-- **AI Brain (Gemini 1.5 Flash)**: Merged 3-in-1 generation for Topic, Script, and B-Roll Keywords.
+- **AI Brain (Gemini 2.0 Flash)**: Ultra-fast 3-in-1 generation for Topic, Script, and B-Roll Keywords.
+- **Professional AI Editing**: Automated context-aware cutting, dynamic text effects (`pop`, `glitch`), and category-specific audio mixing.
+- **Multi-Channel Notifications**: Organized Discord alerts for Logs, Errors, Successes, and AI Insights.
 - **Quota Optimized**: Uses only 2 Gemini calls per day (Gaming + General Facts).
 - **Roblox & Parkour Routing**: Smart asset selection for gaming and universal facts.
-- **Analytics Loop**: Weekly feedback loop to track views and retention (YouTube).
+- **Analytics Loop**: Weekly feedback loop to track views and retention (YouTube Analytics v2).
 - **Self-Healing Auth**: Consolidated Google token refresh toolkit.
 
 ## Tech Stack
-- **AI**: Google Gemini (1.5 Flash)
-- **Voice**: ElevenLabs / Edge TTS Fallback
+- **AI**: Google Gemini (2.0 Flash)
+- **Voice**: ElevenLabs / Microsoft Edge Neural Fallback
 - **Storage**: AWS S3 & Google Drive
 - **Render**: Remotion Lambda (AWS)
 - **Database**: Supabase
@@ -28,7 +30,13 @@ To deploy this via GitHub Actions, add these EXACT keys to your repository under
 - `PEXELS_API_KEY`: Your Pexels API Key
 - `SUPABASE_URL`: Your Supabase Project URL
 - `SUPABASE_KEY`: Your Supabase Service Key
-- `DISCORD_WEBHOOK_URL`: Your Discord Webhook for alerts
+
+#### Discord Webhooks (Organized)
+- `WEBHOOK_LOGS`: For production start events.
+- `WEBHOOK_ERRORS`: For critical error alerts with tracebacks.
+- `WEBHOOK_POSTS`: For success notifications/links.
+- `WEBHOOK_INSIGHTS`: For AI-generated performance feedback.
+- `DISCORD_WEBHOOK_URL`: (Legacy/Fallback) Used if any above are missing.
 
 #### AWS Remotion Lambda details
 - `AWS_ACCESS_KEY_ID`: AWS Access Key

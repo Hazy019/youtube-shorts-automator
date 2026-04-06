@@ -16,7 +16,7 @@ from video_search import get_background_videos, get_sfx_urls, get_bgm_url
 from main import make_cloud_video
 from yt_uploader import upload_video
 from tk_uploader import upload_to_tiktok
-from discord_bot import ping_creator, ping_error
+from discord_bot import ping_creator, ping_error, ping_render_start
 
 def produce_video(category, local_excludes=None):
     print(f"\n--- STARTING PRODUCTION FOR CATEGORY: {category.upper()} ---")
@@ -57,6 +57,7 @@ def produce_video(category, local_excludes=None):
     bgm_url = get_bgm_url(category=category)
 
     render_seed = int(time.time())
+    ping_render_start(viral_package['title'])
     final_video_url = make_cloud_video(
         audio_url,
         video_urls,

@@ -180,12 +180,16 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Credentials and Session Data
 client_secrets.json
 token_drive.json
 token_youtube.json
+ig_session.json
 .env
-temp_voiceover.mp3
-temp_video.mp4
-temp_video_final.mp4
 tiktok_cookies.json
 tiktok_cookies.txt
+
+# Production Temp Files
+temp_*.mp3
+temp_*.mp4
+test_notifications.py
