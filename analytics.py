@@ -96,7 +96,7 @@ In 120 words: what hook/topic patterns drove high retention? What to avoid?
 Give one concrete script change for next week.
 """
         resp = gemini_client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.5),
         )

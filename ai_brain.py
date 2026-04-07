@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PRIMARY_MODEL  = "gemini-2.0-flash"
-FALLBACK_MODEL = "gemini-2.0-flash-lite"
+PRIMARY_MODEL  = "gemini-2.5-flash"
+FALLBACK_MODEL = "gemini-2.5-flash-lite"
 
 _api_key = os.getenv("GEMINI_API_KEY")
 if not _api_key:
