@@ -254,6 +254,8 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
 }}
 """
 
+    prompt = prompt_header + prompt_json
+
     time.sleep(3)  # Burst protection
 
     last_err = "All attempts failed (Validation Repeatedly Failed)"
@@ -288,7 +290,9 @@ OUTPUT — return ONLY this JSON, no markdown, no preamble:
             # Save to Supabase (youtube_id added later by orchestrator)
             full_script = " ".join(s["voiceover"] for s in package["segments"])
             try:
-                supabase.table("videos").insert({
+                supabase = _get_supabase()
+                if supabase:
+                    supabase.table("videos").insert({
                     "topic":  package["topic"],
                     "title":  package["title"],
                     "script": full_script,
