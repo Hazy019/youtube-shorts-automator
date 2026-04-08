@@ -19,7 +19,7 @@ def _ipv4_getaddrinfo(*args, **kwargs):
     return [r for r in responses if r[0] == socket.AF_INET]
 socket.getaddrinfo = _ipv4_getaddrinfo
 
-from discord_bot import ping_error
+from src.utils.discord import ping_error
 
 load_dotenv()
 

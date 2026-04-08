@@ -6,7 +6,7 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-from discord_bot import ping_error
+from src.utils.discord import ping_error
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",

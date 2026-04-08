@@ -17,13 +17,13 @@ load_dotenv()
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-from ai_brain import generate_full_package
-from ai_voice import generate_voiceover
-from video_search import get_background_videos, get_sfx_urls, get_bgm_url
-from main import make_cloud_video
-from yt_uploader import upload_video
-from tk_uploader import upload_to_tiktok
-from discord_bot import ping_creator, ping_error, ping_render_start
+from src.ai.brain import generate_full_package
+from src.ai.tts import generate_voiceover
+from src.media.assets import get_background_videos, get_sfx_urls, get_bgm_url
+from src.media.builder import make_cloud_video
+from src.api.youtube import upload_video
+from src.api.tiktok import upload_to_tiktok
+from src.utils.discord import ping_creator, ping_error, ping_render_start
 
 def produce_video(category, local_excludes=None):
     print(f"\n--- STARTING PRODUCTION FOR CATEGORY: {category.upper()} ---")
@@ -166,8 +166,8 @@ def start_factory():
         else:
             overall_success = False
         
-        print(f"\nTaking a 45-second break before the second video ({today_shift[1].upper()})...")
-        time.sleep(45)
+        print(f"\nTaking a 70-second break before the second video ({today_shift[1].upper()}) to clear Gemini RPM limits...")
+        time.sleep(70)
         
         print(f"--- SHIFT 2: {today_shift[1].upper()} ---")
         topic2 = produce_video(today_shift[1], local_excludes=shift_history)

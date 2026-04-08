@@ -8,7 +8,7 @@ import edge_tts
 from mutagen.mp3 import MP3
 from pydub import AudioSegment, effects
 from dotenv import load_dotenv
-from discord_bot import ping_error 
+from src.utils.discord import ping_error 
 
 load_dotenv()
 

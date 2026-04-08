@@ -34,4 +34,4 @@ jobs:
       - name: Install Dependencies and Sync
         run: |
           pip install -r requirements.txt
-          python analytics.py
+          python run_analytics.py

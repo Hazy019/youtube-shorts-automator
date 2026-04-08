@@ -5,7 +5,7 @@ from google.oauth2.credentials import Credentials
 from google import genai
 from google.genai import types
 from supabase import create_client, Client
-from discord_bot import ping_error, ping_analytics_insight
+from src.utils.discord import ping_error, ping_analytics_insight
 from dotenv import load_dotenv
 
 load_dotenv()

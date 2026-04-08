@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import os
 import requests
 import traceback
@@ -7,8 +11,8 @@ from supabase import create_client, Client
 load_dotenv()
 
 # We can safely import Tk_uploader here
-from tk_uploader import upload_to_tiktok, _cleanup
-from discord_bot import ping_error
+from src.api.tiktok import upload_to_tiktok, _cleanup
+from src.utils.discord import ping_error
 
 def _get_supabase() -> Client | None:
     try:
@@ -69,7 +73,9 @@ def drain_tiktok_queue():
             print("Missing s3_url or description in database. Skipping.")
             continue
             
-        local_filename = f"queue_render_{video_id}.mp4"
+        temp_dir = ".temp"
+        os.makedirs(temp_dir, exist_ok=True)
+        local_filename = os.path.join(temp_dir, f"queue_render_{video_id}.mp4")
         
         # 1. Download
         if not download_video(s3_url, local_filename):
@@ -89,7 +95,7 @@ def drain_tiktok_queue():
             from tiktok_uploader.upload import upload_video
             
             # Use same resolve logic from tk_uploader for cookies
-            from tk_uploader import _prepare_cookies, _validate_netscape
+            from src.api.tiktok import _prepare_cookies, _validate_netscape
             
             cookies_path = _prepare_cookies()
             if not cookies_path or not _validate_netscape(cookies_path):

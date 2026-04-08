@@ -2,14 +2,40 @@
 
 Fully automated short-form video factory for YouTube Shorts and TikTok.
 
-## Core Features
-- **AI Brain (Gemini 2.0 Flash)**: Ultra-fast 3-in-1 generation for Topic, Script, and B-Roll Keywords.
-- **Professional AI Editing**: Automated context-aware cutting, dynamic text effects (`pop`, `glitch`), and category-specific audio mixing.
-- **Multi-Channel Notifications**: Organized Discord alerts for Logs, Errors, Successes, and AI Insights.
-- **Quota Optimized**: Uses only 2 Gemini calls per day (Gaming + General Facts).
-- **Roblox & Parkour Routing**: Smart asset selection for gaming and universal facts.
-- **Analytics Loop**: Weekly feedback loop to track views and retention (YouTube Analytics v2).
-- **Self-Healing Auth**: Consolidated Google token refresh toolkit.
+## Project Architecture
+
+The repository has been logically restructured to cleanly separate internal code from entry commands:
+
+```text
+hazy-shorts-automator/
+├── src/                        # Core application logic
+│   ├── ai/                     # LLM and TTS Engines (brain.py, tts.py)
+│   ├── api/                    # Integrations (youtube, tiktok, google drive)
+│   ├── media/                  # Assembly & Download (builder, assets, maker)
+│   └── utils/                  # Analytics & Discord Bot
+├── tools/                      # Manual maintenance scripts (update tokens, captchas, retries)
+├── run_factory.py              # 🚀 ENTRY 1: Daily Video Production
+├── run_analytics.py            # 🚀 ENTRY 2: Weekly YouTube Data Sync
+└── .github/workflows/          # Automated execution definitions
+```
+
+## How to Run
+
+Instead of navigating the complex web of sub-functions, anyone interacting with the codebase only needs to run the top-level scripts located in the root!
+
+### 1. Manual Generation (Single Video Run)
+```bash
+python run_factory.py
+```
+*This fetches a topic, generates a script, downloads assets, renders the video in Remotion, and pushes to YouTube and TikTok.*
+
+### 2. Manual Analytics Report
+```bash
+python run_analytics.py
+```
+*Connects to YouTube Analytics API, updates Supabase views/retention, and generates an AI Insights summary sent to Discord.*
+
+---
 
 ## Tech Stack
 - **AI**: Google Gemini (2.0 Flash)
@@ -17,7 +43,7 @@ Fully automated short-form video factory for YouTube Shorts and TikTok.
 - **Storage**: AWS S3 & Google Drive
 - **Render**: Remotion Lambda (AWS)
 - **Database**: Supabase
-- **Syndication**: YouTube Data API v3 & TikTok (via Playwright)
+- **Syndication**: YouTube Data API v3 & TikTok-Uploader
 
 ## Setup & Maintenance
 
@@ -32,39 +58,19 @@ To deploy this via GitHub Actions, add these EXACT keys to your repository under
 - `SUPABASE_KEY`: Your Supabase Service Key
 
 #### Discord Webhooks (Organized)
-- `WEBHOOK_LOGS`: For production start events.
-- `WEBHOOK_ERRORS`: For critical error alerts with tracebacks.
-- `WEBHOOK_POSTS`: For success notifications/links.
-- `WEBHOOK_INSIGHTS`: For AI-generated performance feedback.
-- `DISCORD_WEBHOOK_URL`: (Legacy/Fallback) Used if any above are missing.
-
-#### AWS Remotion Lambda details
-- `AWS_ACCESS_KEY_ID`: AWS Access Key
-- `AWS_SECRET_ACCESS_KEY`: AWS Secret Key
-- `BUCKET_NAME`: Remotion AWS S3 Bucket Name
-- `SERVE_URL`: Webpack Serve URL
+- `WEBHOOK_LOGS` / `WEBHOOK_ERRORS` / `WEBHOOK_POSTS` / `WEBHOOK_INSIGHTS`
 
 #### Google Drive Folder IDs
-- `ROBLOX_FOLDER_ID`: Folder ID for gaming b-roll
-- `PARKOUR_FOLDER_ID`: Folder ID for fallback/educational b-roll
-- `SFX_FOLDER_ID`: Folder ID for sound effects
-- `BGM_FOLDER_ID`: Folder ID for background music
+- `ROBLOX_FOLDER_ID` / `PARKOUR_FOLDER_ID` / `SFX_FOLDER_ID` / `GENERAL_BGM_FOLDER_ID` / `GAMING_BGM_FOLDER_ID`
 
-#### Complex JSON Credentials
-1. `CLIENT_SECRETS_JSON`: The raw JSON content of your Google Cloud `client_secrets.json`
-2. `DRIVE_TOKEN_JSON`: The raw JSON content of your `token_drive.json`
-3. `YOUTUBE_TOKEN_JSON`: The raw JSON content of your `token_youtube.json`
-4. `TIKTOK_COOKIES_JSON`: The raw JSON content of your `tiktok_cookies.json`
+#### Complex JSON Credentials (Store in root directory for local runs)
+1. `CLIENT_SECRETS_JSON`
+2. `DRIVE_TOKEN_JSON`
+3. `YOUTUBE_TOKEN_JSON`
+4. `TIKTOK_COOKIES_JSON`
 
 *(To generate the last three JSON files, you can run `python tools/update_tokens.py` and `python tools/capture_tiktok_cookies.py` locally and then copy their content).*
 
-### 3. Production Run
-The factory runs automatically via GitHub Actions at 7 AM and 7 PM ET. To trigger manually:
-```bash
-python orchestrator.py
-```
-
-## Deleted Features
-- **Instagram**: Removed to prioritize YouTube/TikTok and reduce account flag risks.
-- **Minecraft**: All non-Roblox b-roll is now routed to the Parkour folder for higher retention.
-- **Legacy Auth**: Multiple fragmented auth scripts replaced by `tools/update_tokens.py`.
+## Database Note
+If TikTok uploads fail due to an unhandled block or softban, `run_factory.py` queues it via Supabase to a `PENDING` status.
+You can manually run `python tools/bulk_tiktok_poster.py` to auto-launch a visible browser and clear your backlog!

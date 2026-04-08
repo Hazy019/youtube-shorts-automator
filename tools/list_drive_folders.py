@@ -1,4 +1,8 @@
-from video_search import get_drive_service
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.media.assets import get_drive_service
 
 def list_folders():
     service = get_drive_service()

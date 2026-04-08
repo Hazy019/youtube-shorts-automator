@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import random
@@ -9,23 +10,42 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ══════════════════════════════════════════════════════════════════
-# VERIFIED FREE TIER MODEL IDs — DO NOT CHANGE THESE
-#
-# gemini-2.0-flash      → 1500 RPD, 15 RPM  (PRIMARY)
-# gemini-2.0-flash-lite → 1500 RPD, 30 RPM  (FALLBACK only)
-#
-# DEAD MODELS (404 on v1beta API — NEVER USE):
-#   gemini-1.5-flash, gemini-1.5-flash-8b, gemini-2.5-flash,
-#   gemini-2.5-flash-lite, any *-preview, any *-latest, any *-001
-#
-# When gemini-2.0-flash hits 15 RPM limit locally:
-#   → WAIT 65 seconds and retry the SAME model.
-#   → Do NOT fall back to a different model — fallback models are dead.
+# ACTIVE FREE-TIER MODEL IDs (April 2026)
+# Source: ai.google.dev/gemini-api/docs/models
+#   gemini-2.0-flash      → DEPRECATED (limit: 0)
+#   gemini-2.0-flash-lite → DEPRECATED (limit: 0)
 # ══════════════════════════════════════════════════════════════════
-PRIMARY_MODEL  = "gemini-2.0-flash"
-FALLBACK_MODEL = "gemini-2.5-flash"
-TERTIARY_MODEL = "gemini-2.0-flash-lite"
-MODELS = [PRIMARY_MODEL, FALLBACK_MODEL, TERTIARY_MODEL]
+MODELS = [
+    "gemini-2.5-flash",                  # Stable, free tier — best choice (5 RPM, 20 RPD)
+    "gemini-2.5-flash-lite",             # Stable lite variant (15 RPM, 500 RPD — high volume)
+    "gemini-3-flash-preview",            # Preview fallback (5 RPM, 20 RPD)
+    "gemini-3.1-flash-lite-preview",     # Preview lite fallback (15 RPM, 500 RPD)
+]
+
+
+
+# How many times to retry the SAME model on an RPM hit before switching
+RPM_RETRIES_PER_MODEL = 3
+
+
+def _parse_retry_delay(err_str: str) -> int:
+    """Pull retryDelay seconds from the error message, default 65s."""
+    m = re.search(r"retryDelay[': ]+([0-9]+)s", err_str)
+    return int(m.group(1)) + 5 if m else 65
+
+
+def _is_daily_quota_exhausted(err_str: str) -> bool:
+    """
+    True ONLY when the per-day limit is genuinely blown.
+    Google bundles PerDay AND PerMinute violations in the same 429 response,
+    so we cannot rely on the violation name alone.
+    Real daily exhaustion has a retryDelay of multiple hours (>3600s).
+    A short retryDelay (seconds/minutes) means it is just an RPM hit.
+    """
+    delay = _parse_retry_delay(err_str)
+    has_per_day = "PerDay" in err_str or "per_day" in err_str.lower()
+    return has_per_day and delay > 3600
+
 
 _api_key = os.getenv("GEMINI_API_KEY")
 if not _api_key:
@@ -33,6 +53,8 @@ if not _api_key:
 client = genai.Client(api_key=_api_key)
 
 _supabase = None
+
+
 def _get_supabase():
     global _supabase
     if _supabase is None:
@@ -62,7 +84,7 @@ def validate_full_package(data):
     if not all(k in data for k in required):
         return False, f"Missing keys — found {list(data.keys())}"
     if not isinstance(data["segments"], list) or len(data["segments"]) < 5:
-        return False, f"Need ≥5 segments, got {len(data.get('segments', []))}"
+        return False, f"Need >=5 segments, got {len(data.get('segments', []))}"
     seg_keys = ["start", "end", "text", "voiceover", "text_effect", "position", "highlight_word"]
     valid_effects = ("pop", "glitch", "typewriter")
     for i, s in enumerate(data["segments"]):
@@ -113,13 +135,10 @@ def fetch_used_topics():
 def generate_full_package(category, local_excludes=None):
     """
     ONE Gemini call returns everything.
-    Raises RuntimeError with the real reason on failure.
-
-    QUOTA NOTE: gemini-2.0-flash has 15 RPM. If running TWO videos locally
-    back-to-back, the second call may hit the rate limit. This is an RPM
-    (per-minute) limit, NOT an RPD (per-day) limit. The fix is to wait 65s
-    and retry the SAME model — NOT to fall back to a different model.
-    gemini-1.5-flash and gemini-1.5-flash-8b are DEAD on the v1beta API.
+    Retry logic: each model gets RPM_RETRIES_PER_MODEL attempts with proper
+    wait times. On RPM limit, waits and retries the SAME model. On daily
+    exhaustion or fatal errors, moves to the next model in the list.
+    Raises RuntimeError if all models and all retries are exhausted.
     """
     used_topics = fetch_used_topics()
     if local_excludes:
@@ -151,15 +170,15 @@ def generate_full_package(category, local_excludes=None):
         keyword_hint = (
             "Return a SPECIFIC 2-word Pexels video search keyword matching the topic visually.\n"
             "DECISION GUIDE:\n"
-            "  Space / astronomy       → 'Space Nebula' or 'Galaxy Stars'\n"
-            "  Ocean / deep sea        → 'Deep Ocean' or 'Ocean Waves'\n"
-            "  Brain / psychology      → 'Human Brain' or 'Neural Network'\n"
-            "  History / ancient       → 'Ancient Rome' or 'Medieval Castle'\n"
-            "  Biology / body / cells  → 'Human Body' or 'Cell Biology'\n"
-            "  Physics / tech          → 'Quantum Physics' or 'Circuit Board'\n"
-            "  Nature / animals        → 'Wild Nature' or 'Wildlife Animals'\n"
-            "  Weather / storms        → 'Lightning Storm' or 'Storm Clouds'\n"
-            "  Abstract (no good visual) → 'Parkour'\n"
+            "  Space / astronomy       -> 'Space Nebula' or 'Galaxy Stars'\n"
+            "  Ocean / deep sea        -> 'Deep Ocean' or 'Ocean Waves'\n"
+            "  Brain / psychology      -> 'Human Brain' or 'Neural Network'\n"
+            "  History / ancient       -> 'Ancient Rome' or 'Medieval Castle'\n"
+            "  Biology / body / cells  -> 'Human Body' or 'Cell Biology'\n"
+            "  Physics / tech          -> 'Quantum Physics' or 'Circuit Board'\n"
+            "  Nature / animals        -> 'Wild Nature' or 'Wildlife Animals'\n"
+            "  Weather / storms        -> 'Lightning Storm' or 'Storm Clouds'\n"
+            "  Abstract (no good visual) -> 'Parkour'\n"
             "Return ONLY the 2-word keyword."
         )
         sfx_style  = "cinematic, atmospheric — riser and whoosh effects for mystery"
@@ -213,75 +232,100 @@ def generate_full_package(category, local_excludes=None):
 """
     )
 
-    time.sleep(3)  # Burst protection — always wait before first call
+    time.sleep(3)  # Burst protection
+    last_err = "No attempts made"
 
-    last_err = "Unknown — all attempts failed"
-    for attempt in range(3):
-        model_id = MODELS[attempt]
-        try:
-            print(f"Brain (attempt {attempt+1}/3): {model_id}")
-            response = client.models.generate_content(
-                model=model_id,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.8,
-                    response_mime_type="application/json"
+    for model_id in MODELS:
+        for rpm_attempt in range(RPM_RETRIES_PER_MODEL):
+            try:
+                if rpm_attempt == 0:
+                    print(f"Brain [{model_id}]")
+                else:
+                    print(f"Brain [{model_id}] (RPM retry {rpm_attempt}/{RPM_RETRIES_PER_MODEL - 1})")
+
+                response = client.models.generate_content(
+                    model=model_id,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.8,
+                        response_mime_type="application/json"
+                    )
                 )
-            )
 
-            if not response or not response.text:
-                last_err = f"Empty/blocked response from {model_id}"
-                print(f"  Retry: {last_err}")
-                time.sleep(15)
-                continue
+                if not response or not response.text:
+                    last_err = f"Empty/blocked response from {model_id}"
+                    print(f"  Warning: {last_err} — trying next model")
+                    break  # <-- move to next model
 
-            package = json.loads(clean_json_response(response.text))
-            ok, reason = validate_full_package(package)
-            if not ok:
-                last_err = f"Validation failed: {reason}"
-                print(f"  Retry: {last_err}")
-                time.sleep(10)
-                continue
+                package = json.loads(clean_json_response(response.text))
+                ok, reason = validate_full_package(package)
+                if not ok:
+                    last_err = f"Validation failed: {reason}"
+                    print(f"  Warning: {last_err} — trying next model")
+                    break  # <-- move to next model
 
-            # Save to Supabase (non-fatal)
-            db = _get_supabase()
-            if db:
-                try:
-                    full_script = " ".join(s["voiceover"] for s in package["segments"])
-                    db.table("videos").insert({
-                        "topic":  package["topic"],
-                        "title":  package["title"],
-                        "script": full_script,
-                    }).execute()
-                except Exception as e:
-                    print(f"Supabase insert skipped: {e}")
+                # Save to Supabase (non-fatal)
+                db = _get_supabase()
+                if db:
+                    try:
+                        full_script = " ".join(s["voiceover"] for s in package["segments"])
+                        db.table("videos").insert({
+                            "topic":  package["topic"],
+                            "title":  package["title"],
+                            "script": full_script,
+                        }).execute()
+                    except Exception as e:
+                        print(f"  Supabase insert skipped: {e}")
 
-            kw = package.get("search_keyword", "?")
-            print(f"  Topic: {package['topic'][:60]}...")
-            print(f"  B-roll keyword: {kw}")
-            return package
+                kw = package.get("search_keyword", "?")
+                print(f"  Topic: {package['topic'][:60]}...")
+                print(f"  B-roll keyword: {kw}")
+                return package  # ✅ SUCCESS
 
-        except json.JSONDecodeError as e:
-            last_err = f"JSON parse error: {e}"
-            print(f"  Retry: {last_err}")
-            time.sleep(10)
+            except json.JSONDecodeError as e:
+                last_err = f"JSON parse error: {e}"
+                print(f"  {model_id}: Bad JSON — trying next model")
+                break  # <-- move to next model
 
-        except Exception as e:
-            last_err = str(e)
-            upper = last_err.upper()
-            if "429" in upper or "RESOURCE_EXHAUSTED" in upper or "QUOTA" in upper:
-                wait = 70 + (attempt * 30)
-                print(f"  Rate limit (RPM). Waiting {wait}s then retrying {model_id}...")
-                time.sleep(wait)
-            elif "404" in upper or "NOT_FOUND" in upper:
-                print(f"  Model {model_id} returned 404 NOT FOUND. Skipping to next fallback...")
-                last_err = f"404 NOT FOUND for {model_id}"
-                time.sleep(2)
-                continue
-            elif "API_KEY" in upper or "INVALID" in upper or "PERMISSION" in upper:
-                raise RuntimeError(f"Gemini auth error: {last_err}")
-            else:
-                print(f"  Brain error (attempt {attempt+1}): {last_err}")
-                time.sleep(15)
+            except Exception as e:
+                last_err = str(e)
+                upper = last_err.upper()
 
-    raise RuntimeError(f"All 3 Gemini attempts failed. Last: {last_err}")
+                # Auth errors are always fatal — no point retrying
+                if "API_KEY" in upper or "INVALID" in upper or "PERMISSION" in upper:
+                    raise RuntimeError(f"Gemini auth error: {last_err}")
+
+                is_quota = "429" in upper or "RESOURCE_EXHAUSTED" in upper
+
+                # True daily exhaustion (retryDelay > 1 hour) — skip this model entirely
+                if is_quota and _is_daily_quota_exhausted(last_err):
+                    print(f"  {model_id}: Daily quota exhausted — trying next model.")
+                    break  # <-- move to next model
+
+                if is_quota:
+                    wait = _parse_retry_delay(last_err)
+                    if rpm_attempt < RPM_RETRIES_PER_MODEL - 1:
+                        # More retries left — wait and retry the SAME model
+                        print(f"  {model_id}: RPM limit. Waiting {wait}s then retrying...")
+                        time.sleep(wait)
+                        # loop continues to next rpm_attempt
+                    else:
+                        # Exhausted all RPM retries for this model — move on
+                        print(f"  {model_id}: RPM retries exhausted. Trying next model...")
+                        time.sleep(5)
+                        break  # <-- move to next model
+
+                elif "503" in upper or "UNAVAILABLE" in upper:
+                    print(f"  {model_id}: Overloaded (503) — trying next model.")
+                    time.sleep(5)
+                    break
+                elif "404" in upper or "NOT_FOUND" in upper:
+                    print(f"  {model_id}: Dead endpoint (404) — trying next model.")
+                    time.sleep(2)
+                    break
+                else:
+                    print(f"  {model_id}: Error: {last_err[:100]} — trying next model.")
+                    time.sleep(5)
+                    break
+
+    raise RuntimeError(f"Gemini: All models exhausted. Last error: {last_err}")

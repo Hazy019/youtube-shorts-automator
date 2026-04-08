@@ -1,7 +1,7 @@
 import os
 import json
 import time
-from discord_bot import ping_error
+from src.utils.discord import ping_error
 
 NETSCAPE_PATH = "tiktok_cookies_netscape.txt"
 JSON_PATH = "tiktok_cookies.json"

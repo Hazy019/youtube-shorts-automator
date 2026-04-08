@@ -85,4 +85,4 @@ jobs:
           python -m playwright install firefox --with-deps
 
       - name: Run Factory
-        run: python orchestrator.py
+        run: python run_factory.py
