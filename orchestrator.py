@@ -124,6 +124,18 @@ def produce_video(category, local_excludes=None):
             else:
                 tiktok_status = "FAILED"
                 print(f"TikTok Upload Status: {tiktok_status} (Check logs/Discord for errors)")
+                try:
+                    tags = viral_package.get('tags')
+                    hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
+                    tiktok_desc = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
+                    supabase.table("videos").update({
+                        "tiktok_status": "PENDING", 
+                        "s3_video_url": final_video_url,
+                        "tiktok_description": tiktok_desc
+                    }).eq("topic", full_package['topic']).execute()
+                    print(f"TikTok upload queued in Supabase for retry.")
+                except Exception as e:
+                    print(f"Warning: Failed to queue TikTok upload in Supabase (Did you add the columns?): {e}")
 
             ping_creator(youtube_link, tiktok_status, "N/A", viral_package['title'])
 
