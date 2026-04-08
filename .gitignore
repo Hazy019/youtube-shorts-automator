@@ -188,6 +188,7 @@ ig_session.json
 .env
 tiktok_cookies.json
 tiktok_cookies.txt
+tiktok_cookies_netscape.txt
 
 # Production Temp Files
 temp_*.mp3

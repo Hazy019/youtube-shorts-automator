@@ -54,7 +54,22 @@ def generate_voiceover(script_text):
         print("Switching to Microsoft Edge Neural TTS Fallback...")
         ping_error("Fallback Active", "ElevenLabs")
         try:
-            asyncio.run(_generate_edge_tts_async(script_text, local_file))
+            import threading
+            thread_err = None
+            def _run_tts_isolated():
+                nonlocal thread_err
+                try:
+                    asyncio.run(_generate_edge_tts_async(script_text, local_file))
+                except Exception as e:
+                    thread_err = e
+                    
+            t = threading.Thread(target=_run_tts_isolated)
+            t.start()
+            t.join()
+            
+            if thread_err:
+                raise thread_err
+                
         except Exception as e:
             return None, 0, f"Error: {e}"
 

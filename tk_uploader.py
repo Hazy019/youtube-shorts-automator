@@ -107,16 +107,45 @@ def upload_to_tiktok(video_path, title, description, tags=None):
     caption = f"{title}\n\n{description[:1400]}\n\n{hashtags}"[:2200]
 
     try:
-        from tiktok_uploader.upload import upload_video
-
-        print("Launching headless browser via tiktok-uploader...")
-        result = upload_video(
-            video_path,
-            description=caption,
-            cookies=cookies_path,
-            headless=True,
-        )
-        print(f"TikTok upload result: {result}")
+        import threading
+        
+        is_headless = os.getenv("GITHUB_ACTIONS") == "true"
+        thread_result = None
+        thread_err = None
+        
+        def _run_upload():
+            nonlocal thread_result, thread_err
+            try:
+                from tiktok_uploader.upload import upload_video
+                thread_result = upload_video(
+                    video_path,
+                    description=caption,
+                    cookies=cookies_path,
+                    headless=is_headless,
+                )
+            except Exception as e:
+                thread_err = e
+                
+        print(f"Launching browser via tiktok-uploader (Headless: {is_headless})...")
+        t = threading.Thread(target=_run_upload)
+        t.start()
+        t.join()
+        
+        if thread_err:
+            raise thread_err
+            
+        result = thread_result
+        
+        print(f"TikTok upload raw result: {result}")
+        
+        # tiktok-uploader returns a list of FAILED uploads. 
+        # If the list is empty [], then it succeeded! If it has items, those items failed.
+        if isinstance(result, list) and len(result) > 0:
+            err = f"TikTok failed to upload! Playwright was blocked by Captcha or Pop-up. Raw error data: {result[0]}"
+            print(f"[TikTok ERROR] {err}")
+            ping_error(err, "TikTok Upload")
+            return None
+               
         return "TikTok Upload Complete"
 
     except ImportError:
