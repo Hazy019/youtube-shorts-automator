@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Own Gemini client — CORRECT free tier model
+# gemini-2.5-flash does NOT exist on free tier v1beta API
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
@@ -80,23 +82,21 @@ def run_weekly_analytics():
         except Exception as e:
             print(f"  Error for {yt_id}: {e}")
 
-    # AI insight — uses CORRECT free-tier model
     try:
         top = supabase.table("videos").select("topic, views_48h, avg_view_pct, avg_view_dur") \
             .order("avg_view_pct", desc=True).limit(5).execute()
         low = supabase.table("videos").select("topic, views_48h, avg_view_pct, avg_view_dur") \
             .order("avg_view_pct", desc=False).limit(5).execute()
 
-        prompt = f"""
-Analyze YouTube Shorts performance for Hazy Chanel.
-TOP PERFORMERS: {top.data}
-LOW PERFORMERS: {low.data}
-
-In 120 words: what hook/topic patterns drove high retention? What to avoid?
-Give one concrete script change for next week.
-"""
+        prompt = (
+            f"Analyze YouTube Shorts performance for Hazy Chanel.\n"
+            f"TOP PERFORMERS: {top.data}\n"
+            f"LOW PERFORMERS: {low.data}\n\n"
+            "In 120 words: what hook/topic patterns drove high retention? "
+            "What to avoid? Give one concrete script change for next week."
+        )
         resp = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",   # CORRECT — only valid free model
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.5),
         )

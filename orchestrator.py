@@ -1,4 +1,11 @@
 import os
+import sys
+
+# Force console output to UTF-8 to prevent Windows CP1252 UnicodeEncodeError crashing the script
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
 import time
 import requests
 import random
@@ -50,6 +57,13 @@ def produce_video(category, local_excludes=None):
     sfx_urls = get_sfx_urls(num_sfx=len(viral_package['segments']))
 
     bgm_url = get_bgm_url(category=category)
+
+    # Prevent AWS Lambda waste if local Google Drive API times out (WinError 10060)
+    if not video_urls or not sfx_urls or not bgm_url:
+        err = f"FACTORY HALTED: Local Media Fetch Failed. Missing assets. Videos: {len(video_urls)}, SFX: {len(sfx_urls)}, BGM: {'Yes' if bgm_url else 'No'}."
+        print(f"\n{err}")
+        ping_error(err, "Local Google API")
+        return False
 
     render_seed = int(time.time())
     ping_render_start(viral_package['title'])
@@ -129,24 +143,36 @@ def start_factory():
     today_shift = [random.choice(categories) for _ in range(2)]
     print(f"Today's Shift: {today_shift[0].upper()} then {today_shift[1].upper()}\n")
 
+    overall_success = True
     try:
         shift_history = []
         
+        print(f"--- SHIFT 1: {today_shift[0].upper()} ---")
         topic1 = produce_video(today_shift[0])
         if topic1:
             shift_history.append(topic1)
+        else:
+            overall_success = False
         
         print(f"\nTaking a 45-second break before the second video ({today_shift[1].upper()})...")
         time.sleep(45)
         
-        produce_video(today_shift[1], local_excludes=shift_history)
+        print(f"--- SHIFT 2: {today_shift[1].upper()} ---")
+        topic2 = produce_video(today_shift[1], local_excludes=shift_history)
+        if not topic2:
+            overall_success = False
         
     except Exception as e:
         err_msg = f"Fatal Orchestrator Failure: {str(e)}"
         tb = traceback.format_exc()
         print(f"\nFATAL ERROR: {err_msg}\n{tb}")
         ping_error(err_msg, "Orchestrator", traceback_str=tb)
+        overall_success = False
 
+    if not overall_success:
+        print("\nFACTORY SHUTDOWN WITH ERRORS. Check logs above.")
+        sys.exit(1)
+    
     print("\nFACTORY SHUTTING DOWN. ALL TASKS COMPLETE!")
 
 if __name__ == "__main__":

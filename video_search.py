@@ -5,12 +5,19 @@ import time
 import uuid
 import boto3
 import requests
+import socket
 from botocore.config import Config
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from dotenv import load_dotenv
+
+_old_getaddrinfo = socket.getaddrinfo
+def _ipv4_getaddrinfo(*args, **kwargs):
+    responses = _old_getaddrinfo(*args, **kwargs)
+    return [r for r in responses if r[0] == socket.AF_INET]
+socket.getaddrinfo = _ipv4_getaddrinfo
 
 from discord_bot import ping_error
 
