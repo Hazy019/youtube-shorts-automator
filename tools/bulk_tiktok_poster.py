@@ -52,7 +52,13 @@ def drain_tiktok_queue():
         resp = db.table("videos").select("Topic:topic, id, s3_video_url, tiktok_description")\
                 .eq("tiktok_status", "PENDING").execute()
     except Exception as e:
-        print(f"Supabase query failed (Are the columns added?): {e}")
+        err_str = str(e)
+        if "42703" in err_str or "s3_video_url" in err_str:
+            print("\n[ERROR] Supabase Schema Mismatch!")
+            print("Your 'videos' table is missing the 's3_video_url' column.")
+            print("Please run the SQL command provided in the implementation plan to update your database.")
+        else:
+            print(f"Supabase query failed: {e}")
         return
         
     queue = resp.data

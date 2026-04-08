@@ -9,8 +9,20 @@ JSON_PATH = "tiktok_cookies.json"
 
 def _json_to_netscape(json_path: str, netscape_path: str):
     """Convert Playwright-format JSON cookies → Netscape HTTP format."""
-    with open(json_path, "r", encoding="utf-8") as f:
-        cookies = json.load(f)
+    if not os.path.exists(json_path):
+        print(f"Warning: Cookie file {json_path} does not exist.")
+        return False
+
+    if os.path.getsize(json_path) == 0:
+        print(f"Warning: Cookie file {json_path} is empty.")
+        return False
+
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            cookies = json.load(f)
+    except json.JSONDecodeError:
+        print(f"Error: {json_path} is not a valid JSON file.")
+        return False
 
     lines = ["# Netscape HTTP Cookie File", "# https://curl.se/docs/http-cookies.html", ""]
     for c in cookies:
@@ -51,11 +63,14 @@ def _prepare_cookies() -> str | None:
     # 2. JSON from env secret → convert
     json_env = os.getenv("TIKTOK_COOKIES_JSON", "").strip()
     if json_env:
-        with open(JSON_PATH, "w", encoding="utf-8") as f:
-            f.write(json_env)
-        print("TikTok JSON cookies written from TIKTOK_COOKIES_JSON secret.")
-        _json_to_netscape(JSON_PATH, NETSCAPE_PATH)
-        return NETSCAPE_PATH
+        if not (json_env.startswith("[") or json_env.startswith("{")):
+            print("Warning: TIKTOK_COOKIES_JSON env variable does not look like JSON. Skipping.")
+        else:
+            with open(JSON_PATH, "w", encoding="utf-8") as f:
+                f.write(json_env)
+            print("TikTok JSON cookies written from TIKTOK_COOKIES_JSON secret.")
+            if _json_to_netscape(JSON_PATH, NETSCAPE_PATH):
+                return NETSCAPE_PATH
 
     # 3. Local .txt
     if os.path.exists("tiktok_cookies.txt"):

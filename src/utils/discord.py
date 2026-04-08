@@ -8,12 +8,11 @@ load_dotenv()
 # ── Webhook URLs ──────────────────────────────────────────────────────────────
 # factory.yml writes WEBHOOK_LOGS, WEBHOOK_ERRORS, WEBHOOK_POSTS, WEBHOOK_INSIGHTS
 # to the .env file. All fall back to DISCORD_WEBHOOK_URL if specific ones not set.
-# The alpha codes (α21, α17, etc.) were causing silent failures locally because
-# they were never defined — removed entirely.
 URL_LOGS     = os.getenv("WEBHOOK_LOGS")     or os.getenv("DISCORD_WEBHOOK_URL")
 URL_ERRORS   = os.getenv("WEBHOOK_ERRORS")   or os.getenv("DISCORD_WEBHOOK_URL")
 URL_POSTS    = os.getenv("WEBHOOK_POSTS")    or os.getenv("DISCORD_WEBHOOK_URL")
 URL_INSIGHTS = os.getenv("WEBHOOK_INSIGHTS") or os.getenv("DISCORD_WEBHOOK_URL")
+URL_QUEUE    = os.getenv("WEBHOOK_QUEUE")    or os.getenv("DISCORD_WEBHOOK_URL")
 # ─────────────────────────────────────────────────────────────────────────────
 
 start_time = 0
@@ -67,3 +66,9 @@ def ping_error(error_msg, service_name="API", traceback_str=None):
 def ping_analytics_insight(insight_text):
     print("Sending AI Analytics Insight to Discord...")
     _post(URL_INSIGHTS, f"🧠 **AI INSIGHT**\n{insight_text}")
+
+
+def ping_queue(count):
+    """Notify when videos are rendered and added to the Supabase retry queue."""
+    print(f"Sending queue notification for {count} videos...")
+    _post(URL_QUEUE, f"📥 **RETRY QUEUE UPDATED**\nHey! **{count}** new videos are rendered and waiting in the queue! 🚀")

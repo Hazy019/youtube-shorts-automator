@@ -23,7 +23,7 @@ from src.media.assets import get_background_videos, get_sfx_urls, get_bgm_url
 from src.media.builder import make_cloud_video
 from src.api.youtube import upload_video
 from src.api.tiktok import upload_to_tiktok
-from src.utils.discord import ping_creator, ping_error, ping_render_start
+from src.utils.discord import ping_creator, ping_error, ping_render_start, ping_queue
 
 def produce_video(category, local_excludes=None):
     print(f"\n--- STARTING PRODUCTION FOR CATEGORY: {category.upper()} ---")
@@ -142,11 +142,13 @@ def produce_video(category, local_excludes=None):
         if os.path.exists(local_filename):
             os.remove(local_filename)
         print(f"Local temp file deleted. {category.upper()} Syndication Cycle Complete!")
-        return topic
+        
+        was_queued = (tiktok_status == "PENDING")
+        return topic, was_queued
     else:
         print("\nRender failed. Check AWS CloudWatch logs.")
         ping_error("Remotion render returned None", "AWS Lambda")
-        return None
+        return None, False
 
 def start_factory():
     print("HAZY CHANEL AUTOMATION STARTING RANDOMIZED DOUBLE SHIFT...\n" + "="*40)
@@ -158,11 +160,13 @@ def start_factory():
     overall_success = True
     try:
         shift_history = []
+        queued_count = 0
         
         print(f"--- SHIFT 1: {today_shift[0].upper()} ---")
-        topic1 = produce_video(today_shift[0])
+        topic1, q1 = produce_video(today_shift[0])
         if topic1:
             shift_history.append(topic1)
+            if q1: queued_count += 1
         else:
             overall_success = False
         
@@ -170,9 +174,14 @@ def start_factory():
         time.sleep(70)
         
         print(f"--- SHIFT 2: {today_shift[1].upper()} ---")
-        topic2 = produce_video(today_shift[1], local_excludes=shift_history)
-        if not topic2:
+        topic2, q2 = produce_video(today_shift[1], local_excludes=shift_history)
+        if topic2:
+            if q2: queued_count += 1
+        else:
             overall_success = False
+            
+        if queued_count > 0:
+            ping_queue(queued_count)
         
     except Exception as e:
         err_msg = f"Fatal Orchestrator Failure: {str(e)}"
