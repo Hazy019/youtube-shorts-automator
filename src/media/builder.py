@@ -23,7 +23,7 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
         serve_url=SERVE_URL,
         composition="MyComp",
         force_duration_in_frames=total_frames, 
-        concurrency=4,
+        frames_per_lambda=45,
         input_props={
             "audioUrl": voice_url, 
             "videoUrls": background_urls, 
@@ -45,19 +45,23 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
     print(f"Render initiated: {render.render_id}", flush=True)
     
     while True:
-        status = client.get_render_progress(render_id=render.render_id, bucket_name=render.bucket_name)
-        
-        if getattr(status, 'fatalErrorEncountered', False):
-            error_data = getattr(status, 'errors', 'Unknown Error')
+        try:
+            status = client.get_render_progress(render_id=render.render_id, bucket_name=render.bucket_name)
+            
+            if getattr(status, 'fatalErrorEncountered', False):
+                error_data = getattr(status, 'errors', 'Unknown Error')
 
-            safe_error = str(error_data).encode('ascii', 'ignore').decode('ascii')
-            print(f"\nAWS LAMBDA FATAL ERROR: {safe_error}", flush=True)
-            return None
-            
-        if status.done:
-            if not getattr(status, 'outputFile', None):
-                print(f"\nRENDER COMPLETED BUT NO OUTPUT FILE FOUND! Status: {status}", flush=True)
-            return getattr(status, 'outputFile', None)
-            
-        print(f"Progress: {getattr(status, 'overallProgress', 0) * 100:.1f}%", end="\r", flush=True)
+                safe_error = str(error_data).encode('ascii', 'ignore').decode('ascii')
+                print(f"\nAWS LAMBDA FATAL ERROR: {safe_error}", flush=True)
+                return None
+                
+            if status.done:
+                if not getattr(status, 'outputFile', None):
+                    print(f"\nRENDER COMPLETED BUT NO OUTPUT FILE FOUND! Status: {status}", flush=True)
+                return getattr(status, 'outputFile', None)
+                
+            print(f"Progress: {getattr(status, 'overallProgress', 0) * 100:.1f}%", end="\r", flush=True)
+        except Exception as e:
+            print(f"\nNetwork error checking render status: {e}. Retrying in 5s...", flush=True)
+
         time.sleep(5)

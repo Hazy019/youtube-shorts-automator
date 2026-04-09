@@ -86,10 +86,20 @@ def produce_video(category, local_excludes=None):
         print(f"\nSUCCESS! RENDER COMPLETE:\n{final_video_url}")
 
         local_filename = f"temp_render_{category}.mp4"
-        r = requests.get(final_video_url, stream=True)
-        with open(local_filename, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+        for attempt in range(3):
+            try:
+                r = requests.get(final_video_url, stream=True, timeout=60)
+                r.raise_for_status()
+                with open(local_filename, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                break
+            except Exception as e:
+                print(f"Download error: {e}. Retrying {attempt+1}/3...")
+                time.sleep(3)
+                if attempt == 2:
+                    ping_error(f"Render download failed after 3 attempts: {e}", "Downloader")
+                    return None, None, False
 
         print("\n[STEP 1/2] Initiating YouTube Upload...")
         youtube_link = upload_video(
@@ -105,9 +115,15 @@ def produce_video(category, local_excludes=None):
         if youtube_link:
             try:
                 video_id = youtube_link.split("/")[-1]
-                supabase.table("videos").update({"youtube_id": video_id})\
-                    .eq("topic", full_package['topic']).execute()
-                print(f"Supabase updated with youtube_id: {video_id}")
+                for attempt in range(3):
+                    try:
+                        supabase.table("videos").update({"youtube_id": video_id})\
+                            .eq("topic", full_package['topic']).execute()
+                        print(f"Supabase updated with youtube_id: {video_id}")
+                        break
+                    except Exception as e:
+                        if attempt == 2: raise e
+                        time.sleep(2)
             except Exception as e:
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
 
@@ -118,11 +134,17 @@ def produce_video(category, local_excludes=None):
             hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
             tiktok_desc = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
             
-            supabase.table("videos").update({
-                "tiktok_status": "PENDING", 
-                "s3_video_url": final_video_url,
-                "tiktok_description": tiktok_desc
-            }).eq("topic", full_package['topic']).execute()
+            for attempt in range(3):
+                try:
+                    supabase.table("videos").update({
+                        "tiktok_status": "PENDING", 
+                        "s3_video_url": final_video_url,
+                        "tiktok_description": tiktok_desc
+                    }).eq("topic", full_package['topic']).execute()
+                    break
+                except Exception as e:
+                    if attempt == 2: raise e
+                    time.sleep(2)
             
             tiktok_status = "QUEUED"
             print(f"TikTok upload successfully queued in Supabase.")

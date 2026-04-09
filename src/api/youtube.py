@@ -94,19 +94,29 @@ def upload_video(video_path, title, description, category="gaming", tags=None):
         media_body=mediaFile
     )
 
-    try:
-        print(f"Uploading to YouTube as Category {category_id}... (This might take a minute)")
-        response = request.execute()
-        video_id = response['id']
-        print(f"SUCCESS! Video uploaded to YouTube!")
-        video_link = f"https://youtu.be/{video_id}"
-        print(f"Video Link: {video_link}")
-        
-
-        engagement_text = "What did you NOT know before this? Drop it below 👇"
-        post_and_pin_comment(youtube, video_id, engagement_text)
-        
-        return video_link
-    except googleapiclient.errors.HttpError as e:
-        print(f"YouTube Upload Error: {e}")
-        return False
+    print(f"Uploading to YouTube as Category {category_id}... (This might take a minute)")
+    import time
+    for attempt in range(4):
+        try:
+            response = request.execute()
+            video_id = response['id']
+            print(f"SUCCESS! Video uploaded to YouTube!")
+            video_link = f"https://youtu.be/{video_id}"
+            print(f"Video Link: {video_link}")
+            
+            engagement_text = "What did you NOT know before this? Drop it below 👇"
+            post_and_pin_comment(youtube, video_id, engagement_text)
+            
+            return video_link
+        except googleapiclient.errors.HttpError as e:
+            # Usually strict HTTP auth errors
+            print(f"YouTube Upload HTTP Error: {e}")
+            if attempt == 3: return False
+            time.sleep(2 ** attempt * 5)
+        except Exception as e:
+            # Network drops (socket.timeout, Connection reset, etc)
+            print(f"YouTube Upload Network Drop ({attempt+1}/4): {e}")
+            if attempt == 3:
+                ping_error(f"YouTube upload completely dropped after retries: {e}", "Upload")
+                return False
+            time.sleep(2 ** attempt * 5)

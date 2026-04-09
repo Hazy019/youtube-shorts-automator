@@ -22,7 +22,7 @@ def check_elevenlabs_quota(api_key):
     try:
         url = "https://api.elevenlabs.io/v1/user/subscription"
         headers = {"xi-api-key": api_key}
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
             return data.get("character_count", 0) / data.get("character_limit", 1)
@@ -43,11 +43,15 @@ def generate_voiceover(script_text):
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{random.choice(voice_ids)}"
         headers = {"Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": api_key}
         data = {"text": script_text, "model_id": "eleven_turbo_v2", "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}}
-        response = requests.post(url, json=data, headers=headers)
-        if response.status_code == 200:
-            with open(local_file, 'wb') as f:
-                f.write(response.content)
-        else:
+        try:
+            response = requests.post(url, json=data, headers=headers, timeout=45)
+            if response.status_code == 200:
+                with open(local_file, 'wb') as f:
+                    f.write(response.content)
+            else:
+                use_fallback = True
+        except requests.RequestException as e:
+            print(f"ElevenLabs TTS network error: {e}")
             use_fallback = True
 
     if use_fallback:

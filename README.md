@@ -5,7 +5,7 @@ Hazy Chanel Automator is a high-performance, automated video production pipeline
 
 ---
 
-## The Hybrid Production Model (v180+)
+## The Hybrid Production Model (v10)
 
 To bypass platform restrictions (like datacenter IP blocking on TikTok), this system splits production into two distinct phases:
 
