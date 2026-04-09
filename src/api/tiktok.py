@@ -52,6 +52,12 @@ def _prepare_cookies() -> str | None:
       4. Local tiktok_cookies.json file (converted)
     Returns path to Netscape file, or None if no cookies found.
     """
+    # 0. Resolve potential paths
+    possible_roots = [
+        os.getcwd(),                                            # Current working dir
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), # Project root if run from subfolder
+    ]
+    
     # 1. Netscape text directly from env secret
     txt_env = os.getenv("TIKTOK_COOKIES_TXT", "").strip()
     if txt_env:
@@ -73,17 +79,23 @@ def _prepare_cookies() -> str | None:
                 return NETSCAPE_PATH
 
     # 3. Local .txt
-    if os.path.exists("tiktok_cookies.txt"):
-        import shutil
-        shutil.copy("tiktok_cookies.txt", NETSCAPE_PATH)
-        print("Using local tiktok_cookies.txt")
-        return NETSCAPE_PATH
+    for root in possible_roots:
+        txt_path = os.path.join(root, "tiktok_cookies.txt")
+        if os.path.exists(txt_path):
+            import shutil
+            shutil.copy(txt_path, NETSCAPE_PATH)
+            print(f"Using local cookies from: {txt_path}")
+            return NETSCAPE_PATH
 
     # 4. Local .json → convert
-    if os.path.exists(JSON_PATH):
-        _json_to_netscape(JSON_PATH, NETSCAPE_PATH)
-        return NETSCAPE_PATH
+    for root in possible_roots:
+        json_path = os.path.join(root, JSON_PATH)
+        if os.path.exists(json_path):
+            print(f"Found local {json_path}, converting...")
+            if _json_to_netscape(json_path, NETSCAPE_PATH):
+                return NETSCAPE_PATH
 
+    print(f"DEBUG: No local cookie files found in {possible_roots}")
     return None
 
 
@@ -97,8 +109,12 @@ def _validate_netscape(path: str) -> bool:
     missing = [c for c in critical if c not in content]
     if missing:
         print(f"WARNING: TikTok cookies missing critical fields: {missing}")
-        print("Your TikTok session may be expired. Re-run tools/capture_tiktok_cookies.py.")
+        print(f"Cookie file content length: {len(content)} bytes")
+        if len(content) < 50:
+            print(f"Cookie file preview: {content}")
+        print("Your TikTok session may be expired. Re-run tools/capture_tiktok_cookies.py locally.")
         return False
+    print("TikTok cookies validated successfully.")
     return True
 
 
@@ -107,7 +123,7 @@ def upload_to_tiktok(video_path, title, description, tags=None):
 
     cookies_path = _prepare_cookies()
     if not cookies_path:
-        msg = "No TikTok cookie file found. Set TIKTOK_COOKIES_TXT or TIKTOK_COOKIES_JSON secret."
+        msg = "No TikTok cookie file found. Ensure 'tiktok_cookies.txt' or 'tiktok_cookies.json' is in the root directory, OR set TIKTOK_COOKIES_TXT/JSON secrets."
         print(f"[TikTok SKIP] {msg}")
         ping_error(msg, "TikTok Auth")
         return None

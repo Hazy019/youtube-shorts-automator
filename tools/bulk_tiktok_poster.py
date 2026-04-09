@@ -68,16 +68,22 @@ def drain_tiktok_queue():
         
     print(f"Found {len(queue)} pending TikTok uploads in the queue.\n")
 
+    skips = 0
     for i, item in enumerate(queue):
         video_id = item.get("id")
         topic = item.get("Topic")
         s3_url = item.get("s3_video_url")
         desc = item.get("tiktok_description")
         
-        print(f"--- Processing {i+1}/{len(queue)}: {topic} ---")
         if not s3_url or not desc:
-            print("Missing s3_url or description in database. Skipping.")
+            skips += 1
             continue
+            
+        if skips > 0:
+            print(f"--- Skipped {skips} legacy items (missing S3 data) ---")
+            skips = 0
+
+        print(f"--- Processing {i+1}/{len(queue)}: {topic} ---")
             
         temp_dir = ".temp"
         os.makedirs(temp_dir, exist_ok=True)

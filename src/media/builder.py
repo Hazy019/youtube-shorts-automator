@@ -4,7 +4,7 @@ import math
 from remotion_lambda import RemotionClient, RenderMediaParams
 
 SERVE_URL = os.getenv("SERVE_URL")
-FUNCTION_NAME = "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec"
+FUNCTION_NAME = "remotion-render-4-0-443-mem3008mb-disk2048mb-900sec"
 REGION = "us-east-1"
 
 def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_data, duration_seconds, category="gaming", render_seed=0):
@@ -40,8 +40,9 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
         }
     )
     
-    print("Requesting AWS Lambda Render...", flush=True)
+    print(f"Requesting AWS Lambda Render (ID tracking enabled)...", flush=True)
     render = client.render_media_on_lambda(render_params=params)
+    print(f"Render initiated: {render.render_id}", flush=True)
     
     while True:
         status = client.get_render_progress(render_id=render.render_id, bucket_name=render.bucket_name)

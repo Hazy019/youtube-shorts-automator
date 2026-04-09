@@ -41,6 +41,15 @@ def ping_creator(youtube_link, tiktok_status, ig_link, title):
     duration = time.time() - start_time
     minutes  = int(duration // 60)
     seconds  = int(duration % 60)
+    
+    # Detail check for TikTok status
+    if tiktok_status == "QUEUED":
+        tiktok_status = "📥 **QUEUED** (Ready for Local Retry Manager)"
+    elif tiktok_status == "SUCCESS":
+        tiktok_status = "✅ **UPLOADED**"
+    elif tiktok_status == "FAILED":
+        tiktok_status = "❌ **FAILED**"
+
     print(f"Sending completion for: {title}")
     _post(URL_POSTS, (
         f"✅ **PRODUCTION COMPLETE**\n"
@@ -68,7 +77,18 @@ def ping_analytics_insight(insight_text):
     _post(URL_INSIGHTS, f"🧠 **AI INSIGHT**\n{insight_text}")
 
 
-def ping_queue(count):
+def ping_queue(titles):
     """Notify when videos are rendered and added to the Supabase retry queue."""
+    if not titles:
+        return
+        
+    count = len(titles)
+    title_list = "\n".join([f"{i+1}. `{t}`" for i, t in enumerate(titles)])
+    
     print(f"Sending queue notification for {count} videos...")
-    _post(URL_QUEUE, f"📥 **RETRY QUEUE UPDATED**\nHey! **{count}** new videos are rendered and waiting in the queue! 🚀")
+    _post(URL_QUEUE, (
+        f"📥 **RETRY QUEUE UPDATED**\n"
+        f"Hey! **{count}** new videos are rendered and waiting for you in the local retry manager:\n\n"
+        f"{title_list}\n\n"
+        f"🚀 *Ready for bulk upload!*"
+    ))

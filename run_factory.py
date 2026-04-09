@@ -22,7 +22,6 @@ from src.ai.tts import generate_voiceover
 from src.media.assets import get_background_videos, get_sfx_urls, get_bgm_url
 from src.media.builder import make_cloud_video
 from src.api.youtube import upload_video
-from src.api.tiktok import upload_to_tiktok
 from src.utils.discord import ping_creator, ping_error, ping_render_start, ping_queue
 
 def produce_video(category, local_excludes=None):
@@ -43,7 +42,7 @@ def produce_video(category, local_excludes=None):
         tb = traceback.format_exc()
         print(f"\nABORTING: {msg}")
         ping_error(msg, "Gemini Factory", traceback_str=tb)
-        return False
+        return None, False
 
     full_audio_script = " ".join([s['voiceover'] for s in viral_package['segments']])
 
@@ -51,7 +50,7 @@ def produce_video(category, local_excludes=None):
     if not audio_url:
         print("\nFACTORY HALTED: Voiceover generation failed.")
         ping_error(str(voice_error), "ElevenLabs")
-        return False
+        return None, False
 
     video_urls = get_background_videos(topic, keyword, num_clips=3)
     sfx_urls = get_sfx_urls(num_sfx=len(viral_package['segments']))
@@ -63,7 +62,7 @@ def produce_video(category, local_excludes=None):
         err = f"FACTORY HALTED: Local Media Fetch Failed. Missing assets. Videos: {len(video_urls)}, SFX: {len(sfx_urls)}, BGM: {'Yes' if bgm_url else 'No'}."
         print(f"\n{err}")
         ping_error(err, "Local Google API")
-        return False
+        return None, False
 
     render_seed = int(time.time())
     ping_render_start(viral_package['title'])
@@ -107,35 +106,24 @@ def produce_video(category, local_excludes=None):
             except Exception as e:
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
 
-            delay_tt = random.randint(45, 90)
-            print(f"\n[STEP 2/2] Waiting {delay_tt}s for TikTok syndication (anti-bot stagger)...")
-            time.sleep(delay_tt)
-
-            tt_result = upload_to_tiktok(
-                local_filename,
-                viral_package['title'],
-                viral_package['description'],
-                tags=viral_package.get('tags')
-            )
-            
-            if tt_result:
-                tiktok_status = "SUCCESS"
-                print(f"TikTok Upload Status: {tiktok_status}")
-            else:
-                tiktok_status = "FAILED"
-                print(f"TikTok Upload Status: {tiktok_status} (Check logs/Discord for errors)")
-                try:
-                    tags = viral_package.get('tags')
-                    hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
-                    tiktok_desc = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
-                    supabase.table("videos").update({
-                        "tiktok_status": "PENDING", 
-                        "s3_video_url": final_video_url,
-                        "tiktok_description": tiktok_desc
-                    }).eq("topic", full_package['topic']).execute()
-                    print(f"TikTok upload queued in Supabase for retry.")
-                except Exception as e:
-                    print(f"Warning: Failed to queue TikTok upload in Supabase (Did you add the columns?): {e}")
+            # [STEP 2/2] Instantly queue for TikTok (Local Retry Pipeline)
+            print("\n[STEP 2/2] Queuing for TikTok (Bypassing cloud upload)...")
+            try:
+                tags = viral_package.get('tags')
+                hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
+                tiktok_desc = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
+                
+                supabase.table("videos").update({
+                    "tiktok_status": "PENDING", 
+                    "s3_video_url": final_video_url,
+                    "tiktok_description": tiktok_desc
+                }).eq("topic", full_package['topic']).execute()
+                
+                tiktok_status = "QUEUED"
+                print(f"TikTok upload successfully queued in Supabase.")
+            except Exception as e:
+                tiktok_status = "QUEUE_FAILED"
+                print(f"Error: Failed to queue TikTok upload in Supabase: {e}")
 
             ping_creator(youtube_link, tiktok_status, "N/A", viral_package['title'])
 
@@ -143,12 +131,13 @@ def produce_video(category, local_excludes=None):
             os.remove(local_filename)
         print(f"Local temp file deleted. {category.upper()} Syndication Cycle Complete!")
         
-        was_queued = (tiktok_status == "PENDING")
-        return topic, was_queued
+        title = viral_package['title']
+        was_queued = (tiktok_status == "QUEUED")
+        return topic, title, was_queued
     else:
         print("\nRender failed. Check AWS CloudWatch logs.")
         ping_error("Remotion render returned None", "AWS Lambda")
-        return None, False
+        return None, None, False
 
 def start_factory():
     print("HAZY CHANEL AUTOMATION STARTING RANDOMIZED DOUBLE SHIFT...\n" + "="*40)
@@ -160,28 +149,40 @@ def start_factory():
     overall_success = True
     try:
         shift_history = []
-        queued_count = 0
+        queued_titles = []
         
         print(f"--- SHIFT 1: {today_shift[0].upper()} ---")
-        topic1, q1 = produce_video(today_shift[0])
-        if topic1:
-            shift_history.append(topic1)
-            if q1: queued_count += 1
-        else:
+        try:
+            topic1, title1, q1 = produce_video(today_shift[0])
+            if topic1:
+                shift_history.append(topic1)
+                if q1: 
+                    queued_titles.append(title1)
+            else:
+                overall_success = False
+        except Exception as e:
+            print(f"Shift 1 Fatal: {e}")
+            ping_error(f"Shift 1 crashed: {e}", "Orchestrator")
             overall_success = False
         
         print(f"\nTaking a 70-second break before the second video ({today_shift[1].upper()}) to clear Gemini RPM limits...")
         time.sleep(70)
         
         print(f"--- SHIFT 2: {today_shift[1].upper()} ---")
-        topic2, q2 = produce_video(today_shift[1], local_excludes=shift_history)
-        if topic2:
-            if q2: queued_count += 1
-        else:
+        try:
+            topic2, title2, q2 = produce_video(today_shift[1], local_excludes=shift_history)
+            if topic2:
+                if q2: 
+                    queued_titles.append(title2)
+            else:
+                overall_success = False
+        except Exception as e:
+            print(f"Shift 2 Fatal: {e}")
+            ping_error(f"Shift 2 crashed: {e}", "Orchestrator")
             overall_success = False
             
-        if queued_count > 0:
-            ping_queue(queued_count)
+        if queued_titles:
+            ping_queue(queued_titles)
         
     except Exception as e:
         err_msg = f"Fatal Orchestrator Failure: {str(e)}"
