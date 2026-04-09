@@ -45,20 +45,19 @@ SFX_FOLDER         = os.getenv("SFX_FOLDER_ID")
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
-# ── PEXELS FALLBACK KEYWORD POOLS ────────────────────────────────────────────
-# When Pexels returns no results for the AI-generated keyword, randomly pick
-# from these topic-appropriate fallback pools instead of ALWAYS using Parkour.
-PEXELS_GENERAL_FALLBACK = [
-    "Aerial Cityscape", "Time Lapse Nature", "Storm Lightning",
-    "Deep Ocean", "Aurora Borealis", "Space Galaxy",
-    "Mountain Landscape", "Abstract Science", "Fire Water",
-    "Forest Sunlight", "Microscope Biology", "Architecture Buildings",
+# ── CATEGORIZED FALLBACK POOLS ──────────────────────────────────────────────
+# We pick a pool based on the original keyword's intent to keep variety relevant.
+FALLBACK_NATURE = [
+    "Aerial Nature", "Forest Sunlight", "Mountain Landscape", "Time Lapse Nature",
+    "Storm Clouds", "River Water", "Island Beach", "Autumn Forest"
 ]
-
-PEXELS_SCIENCE_TERMS = [
-    "Space Nebula", "Deep Ocean", "Human Brain", "DNA Strand",
-    "Cell Biology", "Lightning Storm", "Aurora Borealis", "Wild Nature",
-    "Neural Network", "Solar System", "Quantum Physics", "Chemical Reaction",
+FALLBACK_SCIENCE = [
+    "Space Nebula", "Galaxy Stars", "Deep Ocean", "Human Brain", "Neural Network",
+    "Lightning Storm", "Cell Biology", "Quantum Physics", "Circuit Board"
+]
+FALLBACK_HISTORY = [
+    "Ancient Rome", "Medieval Castle", "Architecture Buildings", "Historical Manuscript",
+    "Old Library", "Vintage Map", "Dusty Antiques"
 ]
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -216,9 +215,35 @@ def _fetch_pexels(keyword, num_clips, page=None):
         if not videos:
             return []
 
+        # Deduplication using Supabase
+        db = _get_supabase()
+        if db:
+            try:
+                used = db.table("used_clips").select("file_id").execute()
+                used_ids = {str(c["file_id"]) for c in used.data}
+                fresh_videos = [v for v in videos if str(v.get("id")) not in used_ids]
+                
+                if not fresh_videos:
+                    print(f"  All {len(videos)} Pexels videos on this page were used. Proceeding with variety.")
+                    fresh_videos = videos
+                videos = fresh_videos
+            except Exception as e:
+                print(f"  Pexels dedup warning: {e}")
+
         random.shuffle(videos)
         urls = []
         for video in videos[:num_clips]:
+            # Log usage
+            if db:
+                try:
+                    db.table("used_clips").insert({
+                        "file_id": str(video.get("id")), 
+                        "file_name": f"pexels_{video.get('id')}", 
+                        "media_type": "pexels_video"
+                    }).execute()
+                except Exception:
+                    pass
+
             files = video.get("video_files", [])
             portrait = [f for f in files if f.get("height", 0) > f.get("width", 0)]
             if portrait:
@@ -240,57 +265,18 @@ def _fetch_pexels(keyword, num_clips, page=None):
         return []
 
 
-def get_background_videos(topic, keyword, num_clips=3):
+def get_background_videos(topic, keyword, backup_keywords=None, num_clips=3):
     """
-    Route b-roll based on topic + Gemini's search_keyword.
-
-    ROUTING LOGIC:
-    1. Gaming topic detected → Parkour Drive folder (physical action footage)
-    2. keyword == "Parkour" → Parkour Drive folder
-    3. Any other keyword → Try Pexels with that keyword
-       a. Good results (≥2 clips) → use Pexels
-       b. Poor results → try a random fallback keyword from general pool
-       c. Still poor → try Parkour Drive as last resort
+    Route b-roll based on topic + Gemini keywords.
+    
+    HIERARCHY:
+    1. Gaming Topic -> Parkour Drive
+    2. Primary Keyword (random page 1-5)
+    3. AI Backup Keywords (if primary thin)
+    4. Categorized Fallback Pool (if still thin)
+    5. Parkour Drive (Last resort)
     """
     num_clips = min(num_clips, 3)
-
-    gaming_kw = [
-        "blox fruit", "bloxfruits", "roblox", "kitsune", "buddha",
-        "third sea", "bounty", "fruit", "mechanics", "dough", "awakened",
-        "mario", "minecraft", "gta", "elden ring", "doom", "zelda",
-        "fortnite", "pokemon", "sonic", "gaming", "speedrun", "glitch",
-        "video game", "developer", "easter egg", "speedrunner",
-    ]
-    is_gaming_topic = any(w in topic.lower() for w in gaming_kw)
-
-    # ── Route 1: Gaming → Parkour Drive ──────────────────────────────────
-    if is_gaming_topic:
-        print(f"Gaming topic → PARKOUR Drive")
-        return sync_drive_to_s3(os.getenv("PARKOUR_FOLDER_ID"), num_clips, "video")
-
-    # ── Route 2: AI explicitly chose Parkour → Drive ──────────────────────
-    if keyword.lower() == "parkour":
-        print(f"Keyword=Parkour → PARKOUR Drive")
-        return sync_drive_to_s3(os.getenv("PARKOUR_FOLDER_ID"), num_clips, "video")
-
-    # ── Route 3: Pexels with AI-generated keyword ─────────────────────────
-    print(f"Fetching Pexels: '{keyword}'")
-    urls = _fetch_pexels(keyword, num_clips)
-
-    if len(urls) >= 2:
-        print(f"  Pexels returned {len(urls)} clips for '{keyword}'")
-        return urls
-
-    # ── Route 4: Pexels returned too few → try a random fallback keyword ──
-    # This prevents always falling back to Parkour when Pexels has thin results
-    fallback_keyword = random.choice(PEXELS_GENERAL_FALLBACK)
-    print(f"  Pexels thin ({len(urls)} clips). Trying fallback: '{fallback_keyword}'")
-    urls = _fetch_pexels(fallback_keyword, num_clips)
-
-    if len(urls) >= 2:
-        print(f"  Fallback Pexels returned {len(urls)} clips")
-        return urls
-
     # ── Route 5: True last resort → Parkour Drive ─────────────────────────
     print(f"  Pexels exhausted. Using Parkour Drive as last resort.")
     return sync_drive_to_s3(os.getenv("PARKOUR_FOLDER_ID"), num_clips, "video")

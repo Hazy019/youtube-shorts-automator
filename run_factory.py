@@ -52,7 +52,12 @@ def produce_video(category, local_excludes=None):
         ping_error(str(voice_error), "ElevenLabs")
         return None, False
 
-    video_urls = get_background_videos(topic, keyword, num_clips=3)
+    video_urls = get_background_videos(
+        topic, 
+        keyword, 
+        backup_keywords=viral_package.get('backup_keywords'), 
+        num_clips=3
+    )
     sfx_urls = get_sfx_urls(num_sfx=len(viral_package['segments']))
 
     bgm_url = get_bgm_url(category=category)

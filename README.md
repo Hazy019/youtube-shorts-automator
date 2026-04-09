@@ -1,76 +1,75 @@
-# Hazy Chanel Automator V5 🚀
+# Hazy Chanel Automator V176+ 🚀
 
-Fully automated short-form video factory for YouTube Shorts and TikTok.
+Fully automated short-form video factory for YouTube Shorts and TikTok. Optimized for high-retention 90-120s content with advanced semantic asset intelligence.
+
+## 🛠️ The New Workflow (V176+)
+
+We have moved away from cloud-based TikTok uploads to avoid datacenter blocking. The system now follows a "Hybrid Production" model:
+
+1.  **Cloud Production (`run_factory.py`)**: Renders videos in AWS and pushes them immediately to YouTube.
+2.  **Local Syndication (`tools/bulk_tiktok_poster.py`)**: Drains a Supabase queue to upload to TikTok from your local machine, allowing for manual captcha solving.
 
 ## Project Architecture
 
-The repository has been logically restructured to cleanly separate internal code from entry commands:
-
 ```text
-hazy-shorts-automator/
+youtube-shorts-automator/
 ├── src/                        # Core application logic
-│   ├── ai/                     # LLM and TTS Engines (brain.py, tts.py)
-│   ├── api/                    # Integrations (youtube, tiktok, google drive)
-│   ├── media/                  # Assembly & Download (builder, assets, maker)
-│   └── utils/                  # Analytics & Discord Bot
-├── tools/                      # Manual maintenance scripts (update tokens, captchas, retries)
-├── run_factory.py              # 🚀 ENTRY 1: Daily Video Production
-├── run_analytics.py            # 🚀 ENTRY 2: Weekly YouTube Data Sync
-└── .github/workflows/          # Automated execution definitions
+│   ├── ai/                     # LLM & TTS Engines (brain.py, tts.py)
+│   ├── api/                    # Integrations (youtube, tiktok-uploader)
+│   ├── media/                  # ASSEMBLY: builder (Assembly), assets (Deduplication)
+│   └── utils/                  # Discord Notifications & Loggers
+├── tools/                      # REGISTRY & MAINTENANCE
+│   ├── bulk_tiktok_poster.py   # 📥 Local Retry Manager (Drains the Queue)
+│   ├── capture_tiktok_cookies.py
+│   └── update_tokens.py
+├── run_factory.py              # 🚀 PRIMARY ENTRY: Production & YouTube Push
+└── run_analytics.py            # 📊 ANALYSIS: Weekly YouTube Insights
 ```
-
-## How to Run
-
-Instead of navigating the complex web of sub-functions, anyone interacting with the codebase only needs to run the top-level scripts located in the root!
-
-### 1. Manual Generation (Single Video Run)
-```bash
-python run_factory.py
-```
-*This fetches a topic, generates a script, downloads assets, renders the video in Remotion, and pushes to YouTube and TikTok.*
-
-### 2. Manual Analytics Report
-```bash
-python run_analytics.py
-```
-*Connects to YouTube Analytics API, updates Supabase views/retention, and generates an AI Insights summary sent to Discord.*
 
 ---
 
-## Tech Stack
-- **AI**: Google Gemini (2.0 Flash)
-- **Voice**: ElevenLabs / Microsoft Edge Neural Fallback
-- **Storage**: AWS S3 & Google Drive
-- **Render**: Remotion Lambda (AWS)
-- **Database**: Supabase
-- **Syndication**: YouTube Data API v3 & TikTok-Uploader
+## 🚀 How to Run
 
-## Setup & Maintenance
+### 1. Daily Production
+```bash
+python run_factory.py
+```
+*   **Action**: Generates a 90-120s script, downloads background clips, renders in AWS, and uploads to **YouTube**.
+*   **Result**: The TikTok upload is automatically queued in Supabase as `PENDING`.
 
-### 1. GitHub Secrets Configuration
-To deploy this via GitHub Actions, add these EXACT keys to your repository under **Settings > Secrets and variables > Actions**:
+### 2. Clear TikTok Queue (Local Manager)
+```bash
+python tools/bulk_tiktok_poster.py
+```
+*   **Action**: Launches a local browser session, loads your TikTok cookies, and automatically uploads the pending backlog.
+*   **Note**: If TikTok triggers a captcha, you can solve it manually in the window.
 
-#### API Keys & URLs
-- `GEMINI_API_KEY`: Your Google Gemini API Key
-- `ELEVENLABS_API_KEY`: Your ElevenLabs API Key
-- `PEXELS_API_KEY`: Your Pexels API Key
-- `SUPABASE_URL`: Your Supabase Project URL
-- `SUPABASE_KEY`: Your Supabase Service Key
+---
 
-#### Discord Webhooks (Organized)
-- `WEBHOOK_LOGS` / `WEBHOOK_ERRORS` / `WEBHOOK_POSTS` / `WEBHOOK_INSIGHTS`
+## 🧠 Asset Intelligence & Specs
 
-#### Google Drive Folder IDs
-- `ROBLOX_FOLDER_ID` / `PARKOUR_FOLDER_ID` / `SFX_FOLDER_ID` / `GENERAL_BGM_FOLDER_ID` / `GAMING_BGM_FOLDER_ID`
+- **Deduplication**: The system tracks every video ID from **Google Drive** and **Pexels** in Supabase. It will never use the same clip twice until the entire pool is exhausted.
+- **Topic-Aligned Variety**: Uses "Semantic Routing" to pick background videos based on the category (Science vs. Nature vs. History).
+- **Duration**: Target duration is **90-120 seconds** (8-12 segments), optimized for high-retention monetization.
+- **Discord Integration**: Real-time status updates including a bulleted "Queue List" at the end of every factory run.
 
-#### Complex JSON Credentials (Store in root directory for local runs)
-1. `CLIENT_SECRETS_JSON`
-2. `DRIVE_TOKEN_JSON`
-3. `YOUTUBE_TOKEN_JSON`
-4. `TIKTOK_COOKIES_JSON`
+## 🔑 Tech Stack
+- **AI Brain**: Google Gemini 2.5 Flash / 3.1 Flash Lite
+- **Voiceover**: ElevenLabs (High fidelity)
+- **Media Assembly**: Remotion Lambda (AWS)
+- **Database**: Supabase (State Management)
+- **Search**: Pexels API + Google Drive API v3
 
-*(To generate the last three JSON files, you can run `python tools/update_tokens.py` and `python tools/capture_tiktok_cookies.py` locally and then copy their content).*
+## ⚙️ Setup & Secrets
 
-## Database Note
-If TikTok uploads fail due to an unhandled block or softban, `run_factory.py` queues it via Supabase to a `PENDING` status.
-You can manually run `python tools/bulk_tiktok_poster.py` to auto-launch a visible browser and clear your backlog!
+### GitHub Secrets / .env
+- `GEMINI_API_KEY`: Google AI credentials.
+- `ELEVENLABS_API_KEY`: Voice generation.
+- `PEXELS_API_KEY`: Background video search.
+- `SUPABASE_URL` / `SUPABASE_KEY`: Logic & Deduplication state.
+- `WEBHOOK_QUEUE`: Dedicated channel for queue notifications.
+
+### Local Maintenance
+Run these scripts if you see "Token Expired" or "Invalid Cookies" errors:
+1. `python tools/update_tokens.py` (For YouTube/Drive)
+2. `python tools/capture_tiktok_cookies.py` (For TikTok)

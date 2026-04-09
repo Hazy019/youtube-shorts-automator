@@ -80,9 +80,11 @@ def clean_json_response(text):
 
 
 def validate_full_package(data):
-    required = ["topic", "search_keyword", "title", "description", "segments", "tags"]
+    required = ["topic", "α3", "α36", "title", "description", "segments", "tags"]
     if not all(k in data for k in required):
         return False, f"Missing keys — found {list(data.keys())}"
+    if not isinstance(data.get("α36", []), list):
+        return False, "backup_keywords must be a list"
     if not isinstance(data["segments"], list) or len(data["segments"]) < 5:
         return False, f"Need >=5 segments, got {len(data.get('segments', []))}"
     seg_keys = ["start", "end", "text", "voiceover", "text_effect", "position", "highlight_word"]
@@ -179,7 +181,8 @@ def generate_full_package(category, local_excludes=None):
             "  Nature / animals        -> 'Wild Nature' or 'Wildlife Animals'\n"
             "  Weather / storms        -> 'Lightning Storm' or 'Storm Clouds'\n"
             "  Abstract (no good visual) -> 'Parkour'\n"
-            "Return ONLY the 2-word keyword."
+            "Return ONLY the 2-word keyword.\n"
+            "Also provide 2 backup_keywords (visually similar alternatives)."
         )
         sfx_style  = "cinematic, atmospheric — riser and whoosh effects for mystery"
         pace_guide = "Build tension slowly, then drop the fact. Let voiceover breathe."
@@ -187,8 +190,9 @@ def generate_full_package(category, local_excludes=None):
     forbidden_str = str(used_topics) if used_topics else "[]"
 
     prompt = (
-        f"You are a world-class YouTube Shorts scriptwriter AND professional video editor.\n"
+        f"You are a world-class YouTube Shorts α34 AND α28 video editor.\n"
         f"Generate a full production package in ONE response.\n"
+        f"Generate backup_keywords that are strictly semantically related to the topic for visual variety.\n"
         f"Target: INTERNATIONAL / US-FIRST audience. Platform: YouTube Shorts + TikTok.\n\n"
         f"CATEGORY: {category}\n"
         f"THEME: {theme}\n"
@@ -199,25 +203,26 @@ def generate_full_package(category, local_excludes=None):
         f"R1.  NO EMOJIS in JSON.\n"
         f"R2.  topic must be unique, intriguing, end in '...'.\n"
         f"R3.  topic MUST NOT be semantically similar to: {forbidden_str}\n"
-        f"R4.  description = 200+ words, US SEO, hook sentence first, 3+ hashtags.\n"
+        f"R4.  description = 400+ words, US SEO, hook sentence first, 3+ hashtags.\n"
         f"R5.  tags = exactly 15 topic-specific SEO strings.\n"
         f"R6.  text (caption) = 1-3 WORDS MAX. Never a sentence.\n"
         f"R7.  voiceover = full spoken script.\n"
         f"R8.  Caption DIFFERS from voiceover. Caption=punchline. Voiceover=explanation.\n"
         f"R9.  highlight_word = most important word in caption. Renders WHITE.\n"
-        f"R10. 5-7 segments. Each = one edit cut.\n"
+        f"R10. 8-12 segments. Each = one edit cut.\n"
         f"R11. SEGMENT 0 (Hook): end<=3.0s. text_effect=pop. position=top. 1 punchy sentence.\n"
         f"R12. SEGMENT 1 (Tease): 'stay till the end'. text_effect=typewriter. position=center.\n"
         f"R13. BODY: glitch=shocking, pop=reveals, typewriter=builds. 4-8s each. center/top.\n"
         f"R14. LAST (CTA): pop. position=bottom. LIKE/COMMENT/FOLLOW driver.\n"
-        f"R15. Timing: seconds = word_count / 2.5\n"
+        f"R15. Timing: Target total duration 90-120 seconds. Pace: ~2.5 words/sec.\n"
         f"R16. search_keyword: {keyword_hint}\n\n"
         f"EXAMPLES for {category}:\n{examples}\n\n"
         f"Return ONLY valid JSON:\n"
         + """
 {
   "topic": "Unique topic ending in ...",
-  "search_keyword": "Deep Ocean",
+  "α3": "Deep Ocean",
+  "α36": ["Ocean Waves", "Underwater Footage"],
   "title": "SEO title under 50 chars",
   "description": "200+ word SEO description with 3+ hashtags",
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10","tag11","tag12","tag13","tag14","tag15"],
