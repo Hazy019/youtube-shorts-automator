@@ -4,7 +4,7 @@ import math
 from remotion_lambda import RemotionClient, RenderMediaParams
 
 SERVE_URL = os.getenv("SERVE_URL")
-FUNCTION_NAME = "remotion-render-4-0-443-mem3008mb-disk2048mb-900sec"
+FUNCTION_NAME = os.getenv("FUNCTION_NAME", "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec")
 REGION = "us-east-1"
 
 def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_data, duration_seconds, category="gaming", render_seed=0):

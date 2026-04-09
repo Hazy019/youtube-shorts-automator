@@ -74,7 +74,7 @@ def ping_error(error_msg, service_name="API", traceback_str=None):
 
 def ping_analytics_insight(insight_text):
     print("Sending AI Analytics Insight to Discord...")
-    _post(URL_INSIGHTS, f"🧠 **AI INSIGHT**\n{insight_text}")
+    _post(URL_INSIGHTS, f" **AI INSIGHT**\n{insight_text}")
 
 
 def ping_queue(titles):
@@ -87,8 +87,28 @@ def ping_queue(titles):
     
     print(f"Sending queue notification for {count} videos...")
     _post(URL_QUEUE, (
-        f"📥 **RETRY QUEUE UPDATED**\n"
+        f" **RETRY QUEUE UPDATED**\n"
         f"Hey! **{count}** new videos are rendered and waiting for you in the local retry manager:\n\n"
         f"{title_list}\n\n"
-        f"🚀 *Ready for bulk upload!*"
+        f" *Ready for bulk upload!*"
+    ))
+
+
+def ping_tiktok_success(topic):
+    """Notify when a single video is successfully posted to TikTok."""
+    print(f"Sending TikTok success notification: {topic}")
+    _post(URL_QUEUE, (
+        f" **VIDEO POSTED TO TIKTOK**\n"
+        f"**Topic:** `{topic}`\n"
+        f" *Available now on the platform!*"
+    ))
+
+
+def ping_queue_completed(total_uploaded):
+    """Notify when the entire local queue has been processed."""
+    print(f"Sending queue completion notification (Total: {total_uploaded})")
+    _post(URL_QUEUE, (
+        f" **QUEUE FULLY PROCESSED**\n"
+        f"Finished uploading **{total_uploaded}** videos. The queue is now clear!\n\n"
+        f" *All caught up!*"
     ))

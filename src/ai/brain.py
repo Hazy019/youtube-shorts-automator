@@ -80,10 +80,10 @@ def clean_json_response(text):
 
 
 def validate_full_package(data):
-    required = ["topic", "α3", "α36", "title", "description", "segments", "tags"]
+    required = ["topic", "search_keyword", "backup_keywords", "title", "description", "segments", "tags"]
     if not all(k in data for k in required):
         return False, f"Missing keys — found {list(data.keys())}"
-    if not isinstance(data.get("α36", []), list):
+    if not isinstance(data.get("backup_keywords", []), list):
         return False, "backup_keywords must be a list"
     if not isinstance(data["segments"], list) or len(data["segments"]) < 5:
         return False, f"Need >=5 segments, got {len(data.get('segments', []))}"
@@ -221,8 +221,8 @@ def generate_full_package(category, local_excludes=None):
         + """
 {
   "topic": "Unique topic ending in ...",
-  "α3": "Deep Ocean",
-  "α36": ["Ocean Waves", "Underwater Footage"],
+  "search_keyword": "Deep Ocean",
+  "backup_keywords": ["Ocean Waves", "Underwater Footage"],
   "title": "SEO title under 50 chars",
   "description": "200+ word SEO description with 3+ hashtags",
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10","tag11","tag12","tag13","tag14","tag15"],

@@ -12,7 +12,7 @@ load_dotenv()
 
 # We can safely import Tk_uploader here
 from src.api.tiktok import upload_to_tiktok, _cleanup
-from src.utils.discord import ping_error
+from src.utils.discord import ping_error, ping_tiktok_success, ping_queue_completed
 
 def _get_supabase() -> Client | None:
     try:
@@ -68,6 +68,7 @@ def drain_tiktok_queue():
         
     print(f"Found {len(queue)} pending TikTok uploads in the queue.\n")
 
+    total_uploaded = 0
     skips = 0
     for i, item in enumerate(queue):
         video_id = item.get("id")
@@ -150,6 +151,8 @@ def drain_tiktok_queue():
                 print(f"SUCCESS! Uploaded {topic}")
                 db.table("videos").update({"tiktok_status": "SUCCESS"}).eq("id", video_id).execute()
                 print("Marked as SUCCESS in Supabase.")
+                total_uploaded += 1
+                ping_tiktok_success(topic)
                 
         except Exception as e:
             print(f"Upload flow crashed: {e}")
@@ -162,6 +165,8 @@ def drain_tiktok_queue():
                 
     _cleanup()
     print("\nQueue Manager finished processing.")
+    if total_uploaded > 0:
+        ping_queue_completed(total_uploaded)
 
 if __name__ == "__main__":
     drain_tiktok_queue()

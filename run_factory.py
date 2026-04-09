@@ -42,7 +42,7 @@ def produce_video(category, local_excludes=None):
         tb = traceback.format_exc()
         print(f"\nABORTING: {msg}")
         ping_error(msg, "Gemini Factory", traceback_str=tb)
-        return None, False
+        return None, None, False
 
     full_audio_script = " ".join([s['voiceover'] for s in viral_package['segments']])
 
@@ -50,7 +50,7 @@ def produce_video(category, local_excludes=None):
     if not audio_url:
         print("\nFACTORY HALTED: Voiceover generation failed.")
         ping_error(str(voice_error), "ElevenLabs")
-        return None, False
+        return None, None, False
 
     video_urls = get_background_videos(
         topic, 
@@ -67,7 +67,7 @@ def produce_video(category, local_excludes=None):
         err = f"FACTORY HALTED: Local Media Fetch Failed. Missing assets. Videos: {len(video_urls)}, SFX: {len(sfx_urls)}, BGM: {'Yes' if bgm_url else 'No'}."
         print(f"\n{err}")
         ping_error(err, "Local Google API")
-        return None, False
+        return None, None, False
 
     render_seed = int(time.time())
     ping_render_start(viral_package['title'])

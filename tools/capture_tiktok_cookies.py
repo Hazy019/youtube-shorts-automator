@@ -21,20 +21,27 @@ async def capture_cookies():
         await page.goto("https://www.tiktok.com/login")
         
         print("\nACTION: Please log in to TikTok in the browser window.")
-        print("Waiting for automatic login detection (or press ENTER to force save)...")
+        print("Waiting for session to establish (Automatic detection enabled)...")
 
         logged_in = False
-        for _ in range(120):
-            current_url = page.url
-            if "/foryou" in current_url or "/@ " in current_url or "dashboard" in current_url:
-                print(f"\n[DETECTED] Login successful! (URL: {current_url})")
+        for i in range(180):
+            cookies = await context.cookies()
+            cookie_names = [c.get("name", "").lower() for c in cookies]
+            
+            if "sessionid" in cookie_names:
+                print(f"\n[DETECTED] Session ID acquired! (Attempt {i+1})")
                 logged_in = True
-                await asyncio.sleep(2)
+                await asyncio.sleep(3) # Let other cookies settle
                 break
+            
+            if i % 10 == 0 and i > 0:
+                print(f"  ...still waiting for sessionid (Attempt {i})")
+                
             await asyncio.sleep(1)
         
         if not logged_in:
-            input("\n--- PRESS ENTER HERE ONCE LOGGED IN SUCCESSFULLY ---")
+            print("\n[TIMEOUT] Could not detect sessionid automatically.")
+            input("--- Please log in MANUALLY, then press ENTER here to save ---")
         
         cookies = await context.cookies()
         
@@ -52,6 +59,7 @@ async def capture_cookies():
             json.dump(cookies, f)
             
         print("\nSUCCESS! Saved to tiktok_cookies.json")
+        print("Note: bulk_tiktok_poster.py will automatically convert this to tiktok_cookies.txt for uploading.")
         print("\n--- FOR GITHUB ACTIONS ---")
         print("Copy the entire content of tiktok_cookies.json and paste it into a GitHub Secret named: TIKTOK_COOKIES_JSON")
         

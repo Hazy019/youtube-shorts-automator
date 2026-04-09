@@ -1,75 +1,114 @@
-# Hazy Chanel Automator V176+ 🚀
+# Hazy Chanel Automator
+**Professional Short-Form Video Factory for YouTube Shorts & TikTok**
 
-Fully automated short-form video factory for YouTube Shorts and TikTok. Optimized for high-retention 90-120s content with advanced semantic asset intelligence.
-
-## 🛠️ The New Workflow (V176+)
-
-We have moved away from cloud-based TikTok uploads to avoid datacenter blocking. The system now follows a "Hybrid Production" model:
-
-1.  **Cloud Production (`run_factory.py`)**: Renders videos in AWS and pushes them immediately to YouTube.
-2.  **Local Syndication (`tools/bulk_tiktok_poster.py`)**: Drains a Supabase queue to upload to TikTok from your local machine, allowing for manual captcha solving.
-
-## Project Architecture
-
-```text
-youtube-shorts-automator/
-├── src/                        # Core application logic
-│   ├── ai/                     # LLM & TTS Engines (brain.py, tts.py)
-│   ├── api/                    # Integrations (youtube, tiktok-uploader)
-│   ├── media/                  # ASSEMBLY: builder (Assembly), assets (Deduplication)
-│   └── utils/                  # Discord Notifications & Loggers
-├── tools/                      # REGISTRY & MAINTENANCE
-│   ├── bulk_tiktok_poster.py   # 📥 Local Retry Manager (Drains the Queue)
-│   ├── capture_tiktok_cookies.py
-│   └── update_tokens.py
-├── run_factory.py              # 🚀 PRIMARY ENTRY: Production & YouTube Push
-└── run_analytics.py            # 📊 ANALYSIS: Weekly YouTube Insights
-```
+Hazy Chanel Automator is a high-performance, automated video production pipeline designed for high-retention content (90-120s). It uses a **Hybrid Production Model** to combine the power of AWS Cloud rendering with the safety of local syndication.
 
 ---
 
-## 🚀 How to Run
+## The Hybrid Production Model (v180+)
 
-### 1. Daily Production
-```bash
+To bypass platform restrictions (like datacenter IP blocking on TikTok), this system splits production into two distinct phases:
+
+1.  **Phase 1: Cloud Production (`run_factory.py`)**
+    -   **Intelligence**: Scripts generated via Gemini 1.5.
+    -   **Audio**: High-fidelity narration via ElevenLabs.
+    -   **Assembly**: Parallel rendering in **AWS Lambda** (Remotion).
+    -   **YouTube**: Immediate upload to YouTube Shorts.
+    -   **State**: The TikTok upload is queued in **Supabase** as `PENDING`.
+
+2.  **Phase 2: Local Syndication (`tools/bulk_tiktok_poster.py`)**
+    -   **Queue Management**: Drains the Supabase backlog.
+    -   **Automation**: Launches a local browser session (Playwright) to upload videos.
+    -   **Safety**: Allows for manual captcha solving in the window to ensure high success rates.
+
+---
+
+## Prerequisites
+
+- **Python**: 3.10 or higher.
+- **Node.js**: Required locally for Remotion rendering (if testing locally).
+- **AWS CLI**: Configured with IAM credentials for Lambda/S3.
+- **Supabase**: A project with `videos` and `used_clips` tables.
+- **Playwright**: Run `playwright install chromium` after setting up.
+
+---
+
+## Setup & Installation
+
+1.  **Clone & Install**
+    ```powershell
+    git clone https://github.com/Hazy019/youtube-shorts-automator.git
+    cd youtube-shorts-automator
+    pip install -r requirements.txt
+    playwright install chromium
+    ```
+
+2.  **Configure `.env`**
+    Create a `.env` file in the root directory and populate it with your secrets:
+
+    | Key | Description |
+    | :--- | :--- |
+    | `GEMINI_API_KEY` | Google Gemini AI for script generation. |
+    | `ELEVENLABS_API_KEY` | ElevenLabs for voice narration. |
+    | `PEXELS_API_KEY` | B-roll video search. |
+    | `AWS_ACCESS_KEY_ID` | IAM User for S3/Lambda access. |
+    | `AWS_SECRET_ACCESS_KEY` | IAM Secret. |
+    | `FUNCTION_NAME` | Your Remotion Lambda function name. |
+    | `SUPABASE_URL` | Your Supabase project URL. |
+    | `SUPABASE_KEY` | Your Supabase service_role or anon key. |
+    | `DISCORD_WEBHOOK_URL` | Primary channel for production logs. |
+    | `WEBHOOK_QUEUE` | (Optional) Dedicated channel for TikTok queue alerts. |
+
+3.  **Google Cloud Authentication**
+    - Place your `client_secrets.json` in the root.
+    - Run `python tools/update_tokens.py` to generate `token_youtube.json` and `token_drive.json`.
+
+---
+
+## Operational Workflow
+
+### 1. Generating Content
+Run the factory orchestrator to start a production shift:
+```powershell
 python run_factory.py
 ```
-*   **Action**: Generates a 90-120s script, downloads background clips, renders in AWS, and uploads to **YouTube**.
-*   **Result**: The TikTok upload is automatically queued in Supabase as `PENDING`.
+This script validates your credits, checks the queue, and produces videos until your target count or API limits are reached.
 
-### 2. Clear TikTok Queue (Local Manager)
-```bash
+### 2. Uploading to TikTok
+When you are ready to process your backlog:
+```powershell
 python tools/bulk_tiktok_poster.py
 ```
-*   **Action**: Launches a local browser session, loads your TikTok cookies, and automatically uploads the pending backlog.
-*   **Note**: If TikTok triggers a captcha, you can solve it manually in the window.
+- A browser will open.
+- The script will automatically navigate to TikTok and start uploading.
+- **Crucial**: If a "Got It" or "Captcha" popup appears, simply click it in the browser window.
 
 ---
 
-## 🧠 Asset Intelligence & Specs
+## Maintenance & Troubleshooting
 
-- **Deduplication**: The system tracks every video ID from **Google Drive** and **Pexels** in Supabase. It will never use the same clip twice until the entire pool is exhausted.
-- **Topic-Aligned Variety**: Uses "Semantic Routing" to pick background videos based on the category (Science vs. Nature vs. History).
-- **Duration**: Target duration is **90-120 seconds** (8-12 segments), optimized for high-retention monetization.
-- **Discord Integration**: Real-time status updates including a bulleted "Queue List" at the end of every factory run.
+### TikTok Auth Issues
+If you see "Invalid or Missing Cookies":
+1.  Run `python tools/capture_tiktok_cookies.py`.
+2.  Log in to TikTok in the browser window that appears.
+3.  The script will automatically detect your `sessionid` and update `tiktok_cookies.json`.
 
-## 🔑 Tech Stack
-- **AI Brain**: Google Gemini 2.5 Flash / 3.1 Flash Lite
-- **Voiceover**: ElevenLabs (High fidelity)
-- **Media Assembly**: Remotion Lambda (AWS)
-- **Database**: Supabase (State Management)
-- **Search**: Pexels API + Google Drive API v3
+### Asset Deduplication
+The system uses "Semantic Deduplication." Every clip fetched from Pexels or Google Drive is logged in the Supabase `used_clips` table. The system will **never** use the same clip twice in the same niche until the entire asset pool is exhausted.
 
-## ⚙️ Setup & Secrets
+### Discord Notifications
+Monitor your production via your Discord webhooks. You will receive:
+- 🏗️ **Factory Start** alerts.
+- ✅ **Production Complete** summaries (YouTube link included).
+- 🏁 **Queue Fully Processed** alerts for TikTok.
+- 🚨 **Emergency Alerts** with full tracebacks for any failures.
 
-### GitHub Secrets / .env
-- `GEMINI_API_KEY`: Google AI credentials.
-- `ELEVENLABS_API_KEY`: Voice generation.
-- `PEXELS_API_KEY`: Background video search.
-- `SUPABASE_URL` / `SUPABASE_KEY`: Logic & Deduplication state.
-- `WEBHOOK_QUEUE`: Dedicated channel for queue notifications.
+---
 
-### Local Maintenance
-Run these scripts if you see "Token Expired" or "Invalid Cookies" errors:
-1. `python tools/update_tokens.py` (For YouTube/Drive)
-2. `python tools/capture_tiktok_cookies.py` (For TikTok)
+## Project Structure
+
+- `src/ai/`: Brain (Gemini) and TTS (ElevenLabs) integration.
+- `src/api/`: YouTube and TikTok API wrappers.
+- `src/media/`: Video assembly and asset deduplication logic.
+- `tools/`: Utility scripts for cookies, tokens, and bulk posting.
+- `.env`: (Ignored) Local secrets and configuration.

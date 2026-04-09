@@ -3,7 +3,7 @@ import json
 import time
 from src.utils.discord import ping_error
 
-NETSCAPE_PATH = "tiktok_cookies_netscape.txt"
+NETSCAPE_PATH = "tiktok_cookies.txt"
 JSON_PATH = "tiktok_cookies.json"
 
 
@@ -40,7 +40,8 @@ def _json_to_netscape(json_path: str, netscape_path: str):
 
     with open(netscape_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
-    print(f"Converted JSON → Netscape: {netscape_path}")
+    print(f"Converted JSON -> Netscape: {netscape_path}")
+    return True
 
 
 def _prepare_cookies() -> str | None:
@@ -53,10 +54,10 @@ def _prepare_cookies() -> str | None:
     Returns path to Netscape file, or None if no cookies found.
     """
     # 0. Resolve potential paths
-    possible_roots = [
+    possible_roots = list(dict.fromkeys([
         os.getcwd(),                                            # Current working dir
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), # Project root if run from subfolder
-    ]
+    ]))
     
     # 1. Netscape text directly from env secret
     txt_env = os.getenv("TIKTOK_COOKIES_TXT", "").strip()
