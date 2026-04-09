@@ -111,26 +111,26 @@ def produce_video(category, local_excludes=None):
             except Exception as e:
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
 
-            # [STEP 2/2] Instantly queue for TikTok (Local Retry Pipeline)
-            print("\n[STEP 2/2] Queuing for TikTok (Bypassing cloud upload)...")
-            try:
-                tags = viral_package.get('tags')
-                hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
-                tiktok_desc = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
-                
-                supabase.table("videos").update({
-                    "tiktok_status": "PENDING", 
-                    "s3_video_url": final_video_url,
-                    "tiktok_description": tiktok_desc
-                }).eq("topic", full_package['topic']).execute()
-                
-                tiktok_status = "QUEUED"
-                print(f"TikTok upload successfully queued in Supabase.")
-            except Exception as e:
-                tiktok_status = "QUEUE_FAILED"
-                print(f"Error: Failed to queue TikTok upload in Supabase: {e}")
+        # [STEP 2/2] Instantly queue for TikTok (Local Retry Pipeline)
+        print("\n[STEP 2/2] Queuing for TikTok (Bypassing cloud upload)...")
+        try:
+            tags = viral_package.get('tags')
+            hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
+            tiktok_desc = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
+            
+            supabase.table("videos").update({
+                "tiktok_status": "PENDING", 
+                "s3_video_url": final_video_url,
+                "tiktok_description": tiktok_desc
+            }).eq("topic", full_package['topic']).execute()
+            
+            tiktok_status = "QUEUED"
+            print(f"TikTok upload successfully queued in Supabase.")
+        except Exception as e:
+            tiktok_status = "QUEUE_FAILED"
+            print(f"Error: Failed to queue TikTok upload in Supabase: {e}")
 
-            ping_creator(youtube_link, tiktok_status, "N/A", viral_package['title'])
+        ping_creator(youtube_link or "Upload Failed", tiktok_status, "N/A", viral_package['title'])
 
         if os.path.exists(local_filename):
             os.remove(local_filename)
