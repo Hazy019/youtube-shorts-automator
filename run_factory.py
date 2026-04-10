@@ -1,19 +1,50 @@
 import os
 import sys
+import time
+import requests
+import random
+import traceback
+from urllib.parse import urlparse
+from dotenv import load_dotenv
+from supabase import create_client, Client
 
 # Force console output to UTF-8 to prevent Windows CP1252 UnicodeEncodeError crashing the script
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
 
-import time
-import requests
-import random
-import traceback
-from dotenv import load_dotenv
-from supabase import create_client, Client
-
 load_dotenv()
+
+# --- SECURITY & SANITY CHECKS ------------------------------------------------
+ALLOWED_RENDER_DOMAINS = [
+    "s3.us-east-1.amazonaws.com",
+    "remotion-render", # For local/direct lambda testing if applicable
+]
+
+def validate_render_url(url):
+    """Ensure the render download URL is from a trusted domain."""
+    if not url:
+        return False
+    parsed = urlparse(url)
+    domain = parsed.netloc.lower()
+    # Check if any allowed domain is in the netloc
+    return any(allowed in domain for allowed in ALLOWED_RENDER_DOMAINS)
+
+def check_environment():
+    """Verify critical environment variables are present before starting."""
+    required = [
+        "GEMINI_API_KEY", "SUPABASE_URL", "SUPABASE_KEY", 
+        "BUCKET_NAME", "SERVE_URL", "PARKOUR_FOLDER_ID"
+    ]
+    missing = [k for k in required if not os.getenv(k)]
+    if missing:
+        print(f"FATAL: Missing environment variables: {missing}")
+        sys.exit(1)
+    print("Environment check passed.")
+
+# -----------------------------------------------------------------------------
+
+check_environment()
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
@@ -31,11 +62,11 @@ def produce_video(category, local_excludes=None):
         full_package = generate_full_package(category, local_excludes=local_excludes)
         
         topic = full_package['topic']
-        keyword = full_package['search_keyword']
+        search_keyword = full_package['search_keyword']
         viral_package = full_package
 
         print(f"Topic acquired: {topic}")
-        print(f"B-Roll Keyword: {keyword}")
+        print(f"B-Roll Keyword: {search_keyword}")
 
     except Exception as e:
         msg = f"Gemini Error: {str(e)}"
@@ -54,7 +85,7 @@ def produce_video(category, local_excludes=None):
 
     video_urls = get_background_videos(
         topic, 
-        keyword, 
+        search_keyword, 
         backup_keywords=viral_package.get('backup_keywords'), 
         num_clips=1
     )
@@ -84,6 +115,12 @@ def produce_video(category, local_excludes=None):
 
     if final_video_url:
         print(f"\nSUCCESS! RENDER COMPLETE:\n{final_video_url}")
+
+        if not validate_render_url(final_video_url):
+            err = f"SECURITY ALERT: Blocked insecure render download from untrusted domain: {final_video_url}"
+            print(f"\n{err}")
+            ping_error(err, "Security Manager")
+            return None, None, False
 
         local_filename = f"temp_render_{category}.mp4"
         for attempt in range(3):
@@ -127,19 +164,19 @@ def produce_video(category, local_excludes=None):
             except Exception as e:
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
 
-        # [STEP 2/2] TikTok queuing (Enabling for retry manager)
+        # [STEP 2/2] TikTok queuing
         tiktok_status = "QUEUED"
         print("\n[STEP 2/2] Adding video to TikTok retry queue...")
         
         try:
             tags = viral_package.get('tags')
             hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
-            caption = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
+            tiktok_description = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
 
             supabase.table("videos").update({
                 "tiktok_status": "PENDING",
                 "s3_video_url": final_video_url,
-                "tiktok_description": caption
+                "tiktok_description": tiktok_description
             }).eq("topic", full_package['topic']).execute()
             print("Supabase updated with TikTok metadata.")
         except Exception as e:

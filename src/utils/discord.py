@@ -1,20 +1,44 @@
 import os
 import requests
 import time
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # ── Webhook URLs ──────────────────────────────────────────────────────────────
-# factory.yml writes WEBHOOK_LOGS, WEBHOOK_ERRORS, WEBHOOK_POSTS, WEBHOOK_INSIGHTS
+# factory.yml writes DISCORD_WEBHOOK_LOGS, WEBHOOK_ERRORS, WEBHOOK_POSTS, WEBHOOK_INSIGHTS
 # to the .env file. All fall back to DISCORD_WEBHOOK_URL if specific ones not set.
-URL_LOGS     = os.getenv("WEBHOOK_LOGS")     or os.getenv("DISCORD_WEBHOOK_URL")
+URL_LOGS     = os.getenv("DISCORD_WEBHOOK_LOGS")     or os.getenv("DISCORD_WEBHOOK_URL")
 URL_ERRORS   = os.getenv("WEBHOOK_ERRORS")   or os.getenv("DISCORD_WEBHOOK_URL")
 URL_POSTS    = os.getenv("WEBHOOK_POSTS")    or os.getenv("DISCORD_WEBHOOK_URL")
 URL_INSIGHTS = os.getenv("WEBHOOK_INSIGHTS") or os.getenv("DISCORD_WEBHOOK_URL")
 URL_QUEUE    = os.getenv("WEBHOOK_QUEUE")    or os.getenv("DISCORD_WEBHOOK_URL")
 PING_ID      = os.getenv("DISCORD_PING_USER_ID", "898947674089349180")
 # ─────────────────────────────────────────────────────────────────────────────
+
+def redact_secrets(text):
+    """
+    Scrubs sensitive patterns from tracebacks or strings before sending to Discord.
+    Targets API keys, session IDs, and known secret environments.
+    """
+    if not text:
+        return text
+    
+    # Redact common API key patterns (GPT, Gemini, ElevenLabs, etc)
+    # sk-..., AIza..., AKIA..., SG....
+    patterns = [
+        r"sk-[a-zA-Z0-9_\-]{20,}",           # OpenAI / general sk-
+        r"AIza[a-zA-Z0-9_\-]{30,}",          # Google AI / Gemini
+        r"AKIA[a-zA-Z0-9]{16,}",             # AWS Key ID
+        r"SG\.[a-zA-Z0-9_\-]{20,}",          # SendGrid / similar
+        r"https://discord\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_\-]+", # Webhooks
+    ]
+    
+    for p in patterns:
+        text = re.sub(p, "[REDACTED_SECRET]", text)
+        
+    return text
 
 start_time = 0
 
@@ -63,9 +87,11 @@ def ping_creator(youtube_link, tiktok_status, ig_link, title):
 
 
 def ping_error(error_msg, service_name="API", traceback_str=None):
+    error_msg = redact_secrets(error_msg)
     detail = f"**Error:** `{error_msg}`"
     if traceback_str:
-        detail += f"\n**Traceback:**\n```python\n{traceback_str[:1500]}\n```"
+        clean_tb = redact_secrets(traceback_str)
+        detail += f"\n**Traceback:**\n```python\n{clean_tb[:1500]}\n```"
     _post(URL_ERRORS, (
         f"🚨 **EMERGENCY ALERT**\n"
         f"**Service:** {service_name}\n"

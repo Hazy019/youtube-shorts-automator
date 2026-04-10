@@ -88,7 +88,10 @@ def _prepare_cookies() -> str | None:
         txt_path = os.path.join(root, "tiktok_cookies.txt")
         if os.path.exists(txt_path):
             import shutil
-            shutil.copy(txt_path, NETSCAPE_PATH)
+            abs_src  = os.path.abspath(txt_path)
+            abs_dest = os.path.abspath(NETSCAPE_PATH)
+            if abs_src != abs_dest:
+                shutil.copy(txt_path, NETSCAPE_PATH)
             print(f"Using local cookies from: {txt_path}")
             return NETSCAPE_PATH
 

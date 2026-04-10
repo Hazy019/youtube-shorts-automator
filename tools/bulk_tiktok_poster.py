@@ -27,7 +27,7 @@ def _get_supabase() -> Client | None:
 def download_video(url: str, output_path: str) -> bool:
     print(f"Downloading from S3: {url[:60]}...")
     try:
-        r = requests.get(url, stream=True)
+        r = requests.get(url, stream=True, timeout=(10, 120))
         r.raise_for_status()
         with open(output_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
@@ -155,9 +155,11 @@ def drain_tiktok_queue():
                 ping_tiktok_success(topic)
                 
         except Exception as e:
-            print(f"Upload flow crashed: {e}")
+            err_msg = f"Upload flow crashed for '{topic}': {e}"
+            print(err_msg)
             traceback.print_exc()
-            break
+            ping_error(err_msg, "TikTok Bulk Poster")
+            continue  # Keep processing remaining items in the queue
             
         finally:
             if os.path.exists(local_filename):

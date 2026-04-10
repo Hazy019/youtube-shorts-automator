@@ -42,6 +42,9 @@ BUCKET_NAME        = os.getenv("BUCKET_NAME")
 GAMING_BGM_FOLDER  = os.getenv("GAMING_BGM_FOLDER_ID")
 GENERAL_BGM_FOLDER = os.getenv("GENERAL_BGM_FOLDER_ID")
 SFX_FOLDER         = os.getenv("SFX_FOLDER_ID")
+HISTORY_BROLL_FOLDER_ID = os.getenv("HISTORY_BROLL_FOLDER_ID")
+SCIENCE_BROLL_FOLDER_ID = os.getenv("SCIENCE_BROLL_FOLDER_ID")
+PARKOUR_FOLDER_ID = os.getenv("PARKOUR_FOLDER_ID")
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
@@ -278,8 +281,9 @@ def get_background_videos(topic, keyword, backup_keywords=None, num_clips=3):
     1. Gaming Topic -> Parkour Drive
     2. Primary Keyword (random page 1-4)
     3. AI Backup Keywords (if primary thin)
-    4. Categorized Fallback Pool (if still thin)
-    5. Parkour Drive (Last resort)
+    4. Premium AI Drive Folders (Science/History)
+    5. Categorized Fallback Pool (if still thin)
+    6. Randomized Last Resort (Parkour/Pexels)
     """
     num_clips = min(num_clips, 3)
     topic_lower = topic.lower()
@@ -288,7 +292,7 @@ def get_background_videos(topic, keyword, backup_keywords=None, num_clips=3):
     gaming_keywords = ["game", "gaming", "minecraft", "roblox", "gta", "elden", "doom", "speedrun", "speedrunning"]
     if any(k in topic_lower for k in gaming_keywords):
         print(f"  Gaming topic detected. Using Parkour Drive.")
-        return sync_drive_to_s3(os.getenv("PARKOUR_FOLDER_ID"), num_clips, "video")
+        return sync_drive_to_s3(PARKOUR_FOLDER_ID, num_clips, "video")
 
     # Route 2: Primary Pexels keyword
     urls = _fetch_pexels(keyword, num_clips)
@@ -305,24 +309,54 @@ def get_background_videos(topic, keyword, backup_keywords=None, num_clips=3):
                 print(f"  Pexels backup hit: {bk}")
                 return urls[:num_clips]
 
-    # Route 4: Categorized fallback pool
-    if any(k in topic_lower for k in ["space","star","galaxy","planet","nebula"]):
-        pool = FALLBACK_SCIENCE
-    elif any(k in topic_lower for k in ["rome","history","ancient","medieval","war"]):
-        pool = FALLBACK_HISTORY
-    else:
-        pool = FALLBACK_NATURE
+    # Route 4: Premium AI Drive Folders
+    # If Pexels didn't find enough clips, pull from our hyper-realistic AI Drive folders
+    needed = num_clips - len(urls)
+    if needed > 0:
+        science_keywords = [
+            "space","star","galaxy","planet","nebula","brain","science","physics","quantum",
+            "technology","future","cyber","neural","biology","evolution","genetics","astronomy",
+            "supernova","black hole","microscope","telescope","chemistry","atom","molecule","laboratory"
+        ]
+        if any(k in topic_lower for k in science_keywords):
+            print(f"  Science topic detected. Pulling {needed} clips from AI_Science_Broll...")
+            more = sync_drive_to_s3(SCIENCE_BROLL_FOLDER_ID, needed, "video")
+            urls.extend(more)
+            
+        history_keywords = [
+            "rome","history","ancient","medieval","war","knight","tomb","civilization","viking",
+            "samurai","warrior","emperor","kingdom","artifact","museum","archaeology",
+            "renaissance","napoleon","world war","dynasty","pharaoh","empire","temple","ruins","monarchy"
+        ]
+        if any(k in topic_lower for k in history_keywords):
+            print(f"  History topic detected. Pulling {needed} clips from AI_History_Broll...")
+            more = sync_drive_to_s3(HISTORY_BROLL_FOLDER_ID, needed, "video")
+            urls.extend(more)
+            
+        else:
+            # If it's a general topic, use curated fallback keywords on Pexels first
+            fallback_kw = random.choice(FALLBACK_NATURE)
+            more = _fetch_pexels(fallback_kw, needed)
+            urls.extend(more)
 
-    if pool:
-        fallback_kw = random.choice(pool)
-        more = _fetch_pexels(fallback_kw, num_clips - len(urls))
+    if len(urls) >= num_clips:
+        return urls[:num_clips]
+
+    # Route 5: Last resort → Randomize Parkour & Pexels
+    needed = num_clips - len(urls)
+    if needed > 0:
+        print(f"  Flow exhausted. Using randomized last resort...")
+        # Focus on Parkour only as a 50/50 fallback if not gaming
+        if random.random() < 0.5:
+             print("  Selected Parkour Drive as last resort.")
+             more = sync_drive_to_s3(PARKOUR_FOLDER_ID, needed, "video")
+        else:
+             fallback_kw = random.choice(FALLBACK_NATURE)
+             print(f"  Selected Pexels Nature ({fallback_kw}) as last resort.")
+             more = _fetch_pexels(fallback_kw, needed)
         urls.extend(more)
-        if len(urls) >= num_clips:
-            return urls[:num_clips]
 
-    # Route 5: Last resort → Parkour Drive
-    print(f"  Pexels exhausted. Using Parkour Drive as last resort.")
-    return sync_drive_to_s3(os.getenv("PARKOUR_FOLDER_ID"), num_clips, "video")
+    return urls[:num_clips]
 
 
 def get_sfx_urls(num_sfx=7):
