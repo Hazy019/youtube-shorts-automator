@@ -58,6 +58,7 @@ jobs:
           echo "WEBHOOK_LOGS=${{ secrets.WEBHOOK_LOGS || secrets.DISCORD_WEBHOOK_URL }}" >> .env
           echo "WEBHOOK_ERRORS=${{ secrets.WEBHOOK_ERRORS || secrets.DISCORD_WEBHOOK_URL }}" >> .env
           echo "WEBHOOK_POSTS=${{ secrets.WEBHOOK_POSTS || secrets.DISCORD_WEBHOOK_URL }}" >> .env
+          echo "WEBHOOK_QUEUE=${{ secrets.WEBHOOK_QUEUE || secrets.DISCORD_WEBHOOK_URL }}" >> .env
           echo "WEBHOOK_INSIGHTS=${{ secrets.WEBHOOK_INSIGHTS || secrets.DISCORD_WEBHOOK_URL }}" >> .env
           echo "TIKTOK_COOKIES_JSON=${{ secrets.TIKTOK_COOKIES_JSON }}" >> .env
           echo "TIKTOK_COOKIES_TXT=${{ secrets.TIKTOK_COOKIES_TXT }}" >> .env
