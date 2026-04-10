@@ -13,6 +13,7 @@ URL_ERRORS   = os.getenv("WEBHOOK_ERRORS")   or os.getenv("DISCORD_WEBHOOK_URL")
 URL_POSTS    = os.getenv("WEBHOOK_POSTS")    or os.getenv("DISCORD_WEBHOOK_URL")
 URL_INSIGHTS = os.getenv("WEBHOOK_INSIGHTS") or os.getenv("DISCORD_WEBHOOK_URL")
 URL_QUEUE    = os.getenv("WEBHOOK_QUEUE")    or os.getenv("DISCORD_WEBHOOK_URL")
+PING_ID      = os.getenv("DISCORD_PING_USER_ID", "898947674089349180")
 # ─────────────────────────────────────────────────────────────────────────────
 
 start_time = 0
@@ -56,7 +57,8 @@ def ping_creator(youtube_link, tiktok_status, ig_link, title):
         f"**Title:** {title}\n"
         f"📺 **YouTube:** {youtube_link}\n"
         f"🎵 **TikTok:** {tiktok_status}\n"
-        f"⏱️ **Render Time:** {minutes}m {seconds}s"
+        f"⏱️ **Render Time:** {minutes}m {seconds}s\n"
+        f"<@{PING_ID}> **Video is ready!**"
     ))
 
 
@@ -68,7 +70,7 @@ def ping_error(error_msg, service_name="API", traceback_str=None):
         f"🚨 **EMERGENCY ALERT**\n"
         f"**Service:** {service_name}\n"
         f"{detail}\n"
-        f"<@898947674089349180> **Action required!**"
+        f"<@{PING_ID}> **Action required!**"
     ))
 
 
@@ -88,7 +90,7 @@ def ping_queue(titles):
     print(f"Sending queue notification for {count} videos...")
     _post(URL_QUEUE, (
         f" **RETRY QUEUE UPDATED**\n"
-        f"Hey! **{count}** new videos are rendered and waiting for you in the local retry manager:\n\n"
+        f"Hey <@{PING_ID}>! **{count}** new videos are rendered and waiting for you in the local retry manager:\n\n"
         f"{title_list}\n\n"
         f" *Ready for bulk upload!*"
     ))

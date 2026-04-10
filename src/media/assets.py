@@ -103,7 +103,7 @@ def sync_drive_to_s3(folder_id, num_clips, media_type="video"):
     items = []
     for attempt in range(4):
         try:
-            results = service.files().list(q=query, fields="files(id, name)").execute()
+            results = service.files().list(q=query, fields="files(id, name, size)").execute()
             items = results.get("files", [])
             break
         except Exception as e:
@@ -141,7 +141,8 @@ def sync_drive_to_s3(folder_id, num_clips, media_type="video"):
 
     for item in selected:
         safe = item["name"].encode("ascii", "ignore").decode("ascii")
-        print(f"  Syncing {media_type}: {safe}")
+        size_mb = round(int(item.get("size", 0)) / (1024 * 1024), 1)
+        print(f"  Syncing {media_type}: {safe} ({size_mb}MB)")
 
         if db:
             try:
@@ -158,15 +159,19 @@ def sync_drive_to_s3(folder_id, num_clips, media_type="video"):
                 dl = MediaIoBaseDownload(fh, req)
                 done = False
                 while not done:
-                    _, done = dl.next_chunk()
+                    status, done = dl.next_chunk()
+                    if status:
+                        print(f"    Download Progress: {int(status.progress() * 100)}%", end="\r", flush=True)
+                print(f"    Download Progress: 100% (Complete)          ")
                 break
             except Exception as e:
-                print(f"Drive API download error (attempt {attempt+1}): {e}")
+                print(f"\nDrive API download error (attempt {attempt+1}): {e}")
                 if attempt == 3:
                     raise e
                 time.sleep(2 ** attempt)
 
         fh.seek(0)
+        print(f"    Uploading to S3 cloud storage...")
         key = f"{s3_prefix}{uuid.uuid4().hex}"
         s3.upload_fileobj(fh, BUCKET_NAME, key, ExtraArgs={"ContentType": content_type})
         url = s3.generate_presigned_url(
@@ -271,13 +276,51 @@ def get_background_videos(topic, keyword, backup_keywords=None, num_clips=3):
     
     HIERARCHY:
     1. Gaming Topic -> Parkour Drive
-    2. Primary Keyword (random page 1-5)
+    2. Primary Keyword (random page 1-4)
     3. AI Backup Keywords (if primary thin)
     4. Categorized Fallback Pool (if still thin)
     5. Parkour Drive (Last resort)
     """
     num_clips = min(num_clips, 3)
-    # ── Route 5: True last resort → Parkour Drive ─────────────────────────
+    topic_lower = topic.lower()
+
+    # Route 1: Gaming → Parkour Drive
+    gaming_keywords = ["game", "gaming", "minecraft", "roblox", "gta", "elden", "doom", "speedrun", "speedrunning"]
+    if any(k in topic_lower for k in gaming_keywords):
+        print(f"  Gaming topic detected. Using Parkour Drive.")
+        return sync_drive_to_s3(os.getenv("PARKOUR_FOLDER_ID"), num_clips, "video")
+
+    # Route 2: Primary Pexels keyword
+    urls = _fetch_pexels(keyword, num_clips)
+    if len(urls) >= num_clips:
+        print(f"  Pexels primary hit: {keyword}")
+        return urls
+
+    # Route 3: AI backup keywords
+    if backup_keywords:
+        for bk in backup_keywords:
+            more = _fetch_pexels(bk, num_clips - len(urls))
+            urls.extend(more)
+            if len(urls) >= num_clips:
+                print(f"  Pexels backup hit: {bk}")
+                return urls[:num_clips]
+
+    # Route 4: Categorized fallback pool
+    if any(k in topic_lower for k in ["space","star","galaxy","planet","nebula"]):
+        pool = FALLBACK_SCIENCE
+    elif any(k in topic_lower for k in ["rome","history","ancient","medieval","war"]):
+        pool = FALLBACK_HISTORY
+    else:
+        pool = FALLBACK_NATURE
+
+    if pool:
+        fallback_kw = random.choice(pool)
+        more = _fetch_pexels(fallback_kw, num_clips - len(urls))
+        urls.extend(more)
+        if len(urls) >= num_clips:
+            return urls[:num_clips]
+
+    # Route 5: Last resort → Parkour Drive
     print(f"  Pexels exhausted. Using Parkour Drive as last resort.")
     return sync_drive_to_s3(os.getenv("PARKOUR_FOLDER_ID"), num_clips, "video")
 

@@ -56,7 +56,7 @@ def produce_video(category, local_excludes=None):
         topic, 
         keyword, 
         backup_keywords=viral_package.get('backup_keywords'), 
-        num_clips=3
+        num_clips=1
     )
     sfx_urls = get_sfx_urls(num_sfx=len(viral_package['segments']))
 
@@ -127,31 +127,25 @@ def produce_video(category, local_excludes=None):
             except Exception as e:
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
 
-        # [STEP 2/2] Instantly queue for TikTok (Local Retry Pipeline)
-        print("\n[STEP 2/2] Queuing for TikTok (Bypassing cloud upload)...")
+        # [STEP 2/2] TikTok queuing (Enabling for retry manager)
+        tiktok_status = "QUEUED"
+        print("\n[STEP 2/2] Adding video to TikTok retry queue...")
+        
         try:
             tags = viral_package.get('tags')
             hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
-            tiktok_desc = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
-            
-            for attempt in range(3):
-                try:
-                    supabase.table("videos").update({
-                        "tiktok_status": "PENDING", 
-                        "s3_video_url": final_video_url,
-                        "tiktok_description": tiktok_desc
-                    }).eq("topic", full_package['topic']).execute()
-                    break
-                except Exception as e:
-                    if attempt == 2: raise e
-                    time.sleep(2)
-            
-            tiktok_status = "QUEUED"
-            print(f"TikTok upload successfully queued in Supabase.")
-        except Exception as e:
-            tiktok_status = "QUEUE_FAILED"
-            print(f"Error: Failed to queue TikTok upload in Supabase: {e}")
+            caption = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
 
+            supabase.table("videos").update({
+                "tiktok_status": "PENDING",
+                "s3_video_url": final_video_url,
+                "tiktok_description": caption
+            }).eq("topic", full_package['topic']).execute()
+            print("Supabase updated with TikTok metadata.")
+        except Exception as e:
+            print(f"Warning: Failed to queue for TikTok: {e}")
+            tiktok_status = "FAILED"
+        
         ping_creator(youtube_link or "Upload Failed", tiktok_status, "N/A", viral_package['title'])
 
         if os.path.exists(local_filename):
@@ -167,45 +161,29 @@ def produce_video(category, local_excludes=None):
         return None, None, False
 
 def start_factory():
-    print("HAZY CHANEL AUTOMATION STARTING RANDOMIZED DOUBLE SHIFT...\n" + "="*40)
+    print("HAZY CHANEL AUTOMATION STARTING SINGLE SHIFT...\n" + "="*40)
     
     categories = ["gaming", "general"]
-    today_shift = [random.choice(categories) for _ in range(2)]
-    print(f"Today's Shift: {today_shift[0].upper()} then {today_shift[1].upper()}\n")
+    today_shift = random.choice(categories)
+    print(f"Today's Shift: {today_shift.upper()}\n")
 
     overall_success = True
     try:
-        shift_history = []
         queued_titles = []
         
-        print(f"--- SHIFT 1: {today_shift[0].upper()} ---")
+        print(f"--- SHIFT: {today_shift.upper()} ---")
+        produced_topics = []
         try:
-            topic1, title1, q1 = produce_video(today_shift[0])
+            topic1, title1, q1 = produce_video(today_shift, local_excludes=produced_topics)
             if topic1:
-                shift_history.append(topic1)
+                produced_topics.append(topic1)
                 if q1: 
                     queued_titles.append(title1)
             else:
                 overall_success = False
         except Exception as e:
-            print(f"Shift 1 Fatal: {e}")
-            ping_error(f"Shift 1 crashed: {e}", "Orchestrator")
-            overall_success = False
-        
-        print(f"\nTaking a 70-second break before the second video ({today_shift[1].upper()}) to clear Gemini RPM limits...")
-        time.sleep(70)
-        
-        print(f"--- SHIFT 2: {today_shift[1].upper()} ---")
-        try:
-            topic2, title2, q2 = produce_video(today_shift[1], local_excludes=shift_history)
-            if topic2:
-                if q2: 
-                    queued_titles.append(title2)
-            else:
-                overall_success = False
-        except Exception as e:
-            print(f"Shift 2 Fatal: {e}")
-            ping_error(f"Shift 2 crashed: {e}", "Orchestrator")
+            print(f"Shift Fatal: {e}")
+            ping_error(f"Shift crashed: {e}", "Orchestrator")
             overall_success = False
             
         if queued_titles:

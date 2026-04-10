@@ -31,8 +31,13 @@ def post_and_pin_comment(youtube, video_id, text):
         ).execute()
         
 
+        comment_id = comment_response['snippet']['topLevelComment']['id']
+        youtube.comments().setModerationStatus(
+            id=comment_id,
+            moderationStatus='published'
+        ).execute()
 
-        print("Engagement comment posted successfully!")
+        print("Engagement comment posted and status set!")
         return True
     except Exception as e:
         print(f"Failed to post/pin comment: {e}")

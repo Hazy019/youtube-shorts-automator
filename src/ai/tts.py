@@ -77,9 +77,15 @@ def generate_voiceover(script_text):
         except Exception as e:
             return None, 0, f"Error: {e}"
 
+    if not os.path.exists(local_file):
+        print("  FATAL: Audio file was never written.")
+        return None, 0, "Audio file missing after TTS generation."
+
     raw_audio = AudioSegment.from_file(local_file)
     normalized_audio = effects.normalize(raw_audio)
-    normalized_audio.export(local_file, format="mp3")
+    normalized_path = local_file.replace(".mp3", "_norm.mp3")
+    normalized_audio.export(normalized_path, format="mp3")
+    os.replace(normalized_path, local_file)  # atomic replace
 
     audio_info = MP3(local_file)
     duration_seconds = audio_info.info.length

@@ -1,35 +1,38 @@
 # Hazy Chanel Automator
-**Professional Short-Form Video Factory for YouTube Shorts & TikTok**
+**Professional Short-Form Video Factory for YouTube Shorts (High Concurrency Cloud)**
 
-Hazy Chanel Automator is a high-performance, automated video production pipeline designed for high-retention content (90-120s). It uses a **Hybrid Production Model** to combine the power of AWS Cloud rendering with the safety of local syndication.
+Hazy Chanel Automator is a high-performance, automated video production pipeline designed for high-retention content (90-120s). The system is currently optimized for **YouTube Shorts Cloud Production** with extreme stability and parallel rendering.
 
 ---
 
-## The Hybrid Production Model (v10)
+## The hardened Cloud Pipeline (v11)
 
-To bypass platform restrictions (like datacenter IP blocking on TikTok), this system splits production into two distinct phases:
+To ensure maximum reliability and speed, the system has been hardened against cloud-scale bottlenecks:
 
-1.  **Phase 1: Cloud Production (`run_factory.py`)**
-    -   **Intelligence**: Scripts generated via Gemini 1.5.
-    -   **Audio**: High-fidelity narration via ElevenLabs.
-    -   **Assembly**: Parallel rendering in **AWS Lambda** (Remotion).
-    -   **YouTube**: Immediate upload to YouTube Shorts.
-    -   **State**: The TikTok upload is queued in **Supabase** as `PENDING`.
+1.  **Single-Shift Production (`run_factory.py`)**
+    -   Produces ONE high-quality short per run (category: gaming or general).
+    -   **Intelligence**: High-retention scripts via Gemini 1.5.
+    -   **Visuals**: Smart B-roll syncing with real-time progress bars (transfer from Drive → S3).
+    -   **Stability**: Exponential backoff retries on all network calls to prevent transient failures.
 
-2.  **Phase 2: Local Syndication (`tools/bulk_tiktok_poster.py`)**
-    -   **Queue Management**: Drains the Supabase backlog.
-    -   **Automation**: Launches a local browser session (Playwright) to upload videos.
-    -   **Safety**: Allows for manual captcha solving in the window to ensure high success rates.
+2.  **High-Parallel AWS Assembly (`src/media/builder.py`)**
+    -   **Concurrency-Aware**: Configured specifically for high AWS Concurrency Quotas (1001+ nodes).
+    -   **Fast Stitching**: Uses optimized `frames_per_lambda` (60-120) and `concurrency_per_lambda` (2-8) to render 90s videos in parallel chunks.
+    -   **Self-Healing**: Automatically detects AWS "Rate Exceeded" or "Concurrency Limit" errors and triggers a cooldown-backoff retry.
+
+3.  **Automated YouTube Syndication**
+    -   Immediate upload to YouTube Shorts with SEO-optimized titles, descriptions, and tags.
+    -   State logging to Supabase with YouTube Video IDs.
 
 ---
 
 ## Prerequisites
 
 - **Python**: 3.10 or higher.
-- **Node.js**: Required locally for Remotion rendering (if testing locally).
-- **AWS CLI**: Configured with IAM credentials for Lambda/S3.
+- **AWS CLI**: IAM credentials for Lambda/S3.
+- **AWS Quota**: 1000+ Unreserved Concurrency (Recommended for peak performance).
 - **Supabase**: A project with `videos` and `used_clips` tables.
-- **Playwright**: Run `playwright install chromium` after setting up.
+- **Google Cloud**: `client_secrets.json` for YouTube/Drive APIs.
 
 ---
 
@@ -40,68 +43,45 @@ To bypass platform restrictions (like datacenter IP blocking on TikTok), this sy
     git clone https://github.com/Hazy019/youtube-shorts-automator.git
     cd youtube-shorts-automator
     pip install -r requirements.txt
-    playwright install chromium
     ```
 
 2.  **Configure `.env`**
-    Create a `.env` file in the root directory and populate it with your secrets:
-
-    | Key | Description |
-    | :--- | :--- |
-    | `GEMINI_API_KEY` | Google Gemini AI for script generation. |
-    | `ELEVENLABS_API_KEY` | ElevenLabs for voice narration. |
-    | `PEXELS_API_KEY` | B-roll video search. |
-    | `AWS_ACCESS_KEY_ID` | IAM User for S3/Lambda access. |
-    | `AWS_SECRET_ACCESS_KEY` | IAM Secret. |
-    | `FUNCTION_NAME` | Your Remotion Lambda function name. |
-    | `SUPABASE_URL` | Your Supabase project URL. |
-    | `SUPABASE_KEY` | Your Supabase service_role or anon key. |
-    | `DISCORD_WEBHOOK_URL` | Primary channel for production logs. |
-    | `WEBHOOK_QUEUE` | (Optional) Dedicated channel for TikTok queue alerts. |
+    Ensure these keys are present:
+    `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `PEXELS_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `FUNCTION_NAME`, `SUPABASE_URL`, `SUPABASE_KEY`, `DISCORD_WEBHOOK_URL`.
 
 3.  **Google Cloud Authentication**
-    - Place your `client_secrets.json` in the root.
-    - Run `python tools/update_tokens.py` to generate `token_youtube.json` and `token_drive.json`.
+    Run `python tools/update_tokens.py` to generate `token_youtube.json` and `token_drive.json`.
 
 ---
 
 ## Operational Workflow
 
-### 1. Generating Content
-Run the factory orchestrator to start a production shift:
+### Run the Factory
 ```powershell
 python run_factory.py
 ```
-This script validates your credits, checks the queue, and produces videos until your target count or API limits are reached.
-
-### 2. Uploading to TikTok
-When you are ready to process your backlog:
-```powershell
-python tools/bulk_tiktok_poster.py
-```
-- A browser will open.
-- The script will automatically navigate to TikTok and start uploading.
-- **Crucial**: If a "Got It" or "Captcha" popup appears, simply click it in the browser window.
+-   The bot will select a category.
+-   It will sync b-roll (showing **transfer progress %** and **MB sizes**).
+-   It will initiate the AWS Lambda render (tracking progress in real-time).
+-   It will upload to YouTube and **ping you on Discord** when complete.
 
 ---
 
-## Maintenance & Troubleshooting
+## Maintenance & Features
 
-### TikTok Auth Issues
-If you see "Invalid or Missing Cookies":
-1.  Run `python tools/capture_tiktok_cookies.py`.
-2.  Log in to TikTok in the browser window that appears.
-3.  The script will automatically detect your `sessionid` and update `tiktok_cookies.json`.
+### Real-Time Transparency
+The factory now provides full feedback during the "Syncing" phase. You will see exactly how much data is being transferred and the % progress of each clip being mirrored from Google Drive to S3.
 
-### Asset Deduplication
-The system uses "Semantic Deduplication." Every clip fetched from Pexels or Google Drive is logged in the Supabase `used_clips` table. The system will **never** use the same clip twice in the same niche until the entire asset pool is exhausted.
+### Self-Recovery
+If AWS Lambda is busy or your account hits a burst limit, the bot will notify you in the console, wait for a 60-second cooldown, and retry the entire render automatically.
 
 ### Discord Notifications
 Monitor your production via your Discord webhooks. You will receive:
 - 🏗️ **Factory Start** alerts.
-- ✅ **Production Complete** summaries (YouTube link included).
-- 🏁 **Queue Fully Processed** alerts for TikTok.
-- 🚨 **Emergency Alerts** with full tracebacks for any failures.
+- ✅ **Production Complete** summaries with a **Literal Ping** to notify you.
+- 🚨 **Emergency Alerts** with full tracebacks for any service failures.
+
+---
 
 ---
 

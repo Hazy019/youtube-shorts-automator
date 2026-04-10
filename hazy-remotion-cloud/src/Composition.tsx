@@ -189,7 +189,7 @@ export const MyComp: React.FC<{
   renderSeed = 0,
 }) => {
   const { fps, durationInFrames } = useVideoConfig();
-  const framesPerClip = Math.ceil(durationInFrames / (videoUrls?.length || 1));
+  const framesPerClip = Math.ceil(durationInFrames / Math.max(1, videoUrls?.length || 1));
   const totalSegments = segments?.length ?? 0;
 
   return (

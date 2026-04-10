@@ -29,6 +29,7 @@ jobs:
           echo "WEBHOOK_INSIGHTS=${{ secrets.WEBHOOK_INSIGHTS || secrets.DISCORD_WEBHOOK_URL }}" >> .env
           echo "WEBHOOK_ERRORS=${{ secrets.WEBHOOK_ERRORS || secrets.DISCORD_WEBHOOK_URL }}" >> .env
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "FUNCTION_NAME=${{ secrets.FUNCTION_NAME }}" >> .env
           echo "GITHUB_ACTIONS=true" >> .env
 
       - name: Install Dependencies and Sync

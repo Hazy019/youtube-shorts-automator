@@ -67,12 +67,13 @@ jobs:
           echo "WEBHOOK_INSIGHTS=${{ secrets.WEBHOOK_INSIGHTS || secrets.DISCORD_WEBHOOK_URL }}" >> .env
           echo "TIKTOK_COOKIES_JSON=${{ secrets.TIKTOK_COOKIES_JSON }}" >> .env
           echo "TIKTOK_COOKIES_TXT=${{ secrets.TIKTOK_COOKIES_TXT }}" >> .env
+          echo "FUNCTION_NAME=${{ secrets.FUNCTION_NAME }}" >> .env
           echo "GITHUB_ACTIONS=true" >> .env
 
       - name: Verify Critical Secrets
         run: |
           python -m pip install python-dotenv
-          python -c 'import os; from dotenv import load_dotenv; load_dotenv(); critical = ["GEMINI_API_KEY", "SUPABASE_URL", "AWS_ACCESS_KEY_ID", "BUCKET_NAME", "SERVE_URL", "PARKOUR_FOLDER_ID"]; missing = [k for k, v in {k: os.getenv(k) for k in critical}.items() if not v]; exit(f"::error::Missing critical secrets: {missing}") if missing else print("All critical secrets found.")'
+          python -c 'import os; from dotenv import load_dotenv; load_dotenv(); critical = ["GEMINI_API_KEY", "SUPABASE_URL", "AWS_ACCESS_KEY_ID", "BUCKET_NAME", "SERVE_URL", "PARKOUR_FOLDER_ID", "FUNCTION_NAME"]; missing = [k for k, v in {k: os.getenv(k) for k in critical}.items() if not v]; exit(f"::error::Missing critical secrets: {missing}") if missing else print("All critical secrets found.")'
 
       - name: Install Python Requirements
         run: |

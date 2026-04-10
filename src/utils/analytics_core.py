@@ -96,7 +96,7 @@ def run_weekly_analytics():
             "What to avoid? Give one concrete script change for next week."
         )
         resp = gemini_client.models.generate_content(
-            model="gemini-2.0-flash",   # CORRECT — only valid free model
+            model="gemini-2.5-flash",   # Pinned to stable version
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.5),
         )

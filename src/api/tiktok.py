@@ -5,6 +5,7 @@ from src.utils.discord import ping_error
 
 NETSCAPE_PATH = "tiktok_cookies.txt"
 JSON_PATH = "tiktok_cookies.json"
+_temp_files = []
 
 
 def _json_to_netscape(json_path: str, netscape_path: str):
@@ -65,6 +66,7 @@ def _prepare_cookies() -> str | None:
         with open(NETSCAPE_PATH, "w", encoding="utf-8") as f:
             f.write(txt_env)
         print("TikTok cookies written from TIKTOK_COOKIES_TXT secret.")
+        _temp_files.append(NETSCAPE_PATH)
         return NETSCAPE_PATH
 
     # 2. JSON from env secret → convert
@@ -76,7 +78,9 @@ def _prepare_cookies() -> str | None:
             with open(JSON_PATH, "w", encoding="utf-8") as f:
                 f.write(json_env)
             print("TikTok JSON cookies written from TIKTOK_COOKIES_JSON secret.")
+            _temp_files.append(JSON_PATH)
             if _json_to_netscape(JSON_PATH, NETSCAPE_PATH):
+                _temp_files.append(NETSCAPE_PATH)
                 return NETSCAPE_PATH
 
     # 3. Local .txt
@@ -197,8 +201,13 @@ def upload_to_tiktok(video_path, title, description, tags=None):
 
 
 def _cleanup():
-    """Remove temp cookie files — never leave session data on disk in CI."""
-    for path in [NETSCAPE_PATH, JSON_PATH]:
-        if os.path.exists(path) and os.getenv("GITHUB_ACTIONS") == "true":
-            os.remove(path)
-            print(f"Cleaned up: {path}")
+    """Remove temp cookie files created from env vars."""
+    global _temp_files
+    for path in _temp_files:
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                print(f"Cleaned up temp session file: {path}")
+            except:
+                pass
+    _temp_files = []
