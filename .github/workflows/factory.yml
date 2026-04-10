@@ -24,12 +24,6 @@ jobs:
           key: pip-${{ hashFiles('requirements.txt') }}
           restore-keys: pip-
 
-      - name: Cache Playwright Firefox
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-firefox-${{ hashFiles('requirements.txt') }}
-          restore-keys: playwright-firefox-
 
       - name: Recreate Auth Tokens
         env:
@@ -80,10 +74,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install Playwright & System Deps
+      - name: Install System Deps
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
-          python -m playwright install firefox --with-deps
 
       - name: Run Factory
         run: python run_factory.py
