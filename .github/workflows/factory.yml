@@ -68,7 +68,7 @@ jobs:
       - name: Verify Critical Secrets
         run: |
           python -m pip install python-dotenv
-          python -c 'import os; from dotenv import load_dotenv; load_dotenv(); critical = ["GEMINI_API_KEY", "SUPABASE_URL", "AWS_ACCESS_KEY_ID", "BUCKET_NAME", "SERVE_URL", "PARKOUR_FOLDER_ID", "FUNCTION_NAME"]; missing = [k for k, v in {k: os.getenv(k) for k in critical}.items() if not v]; exit(f"::error::Missing critical secrets: {missing}") if missing else print("All critical secrets found.")'
+          python -c 'import os; from dotenv import load_dotenv; load_dotenv(); critical = ["GEMINI_API_KEY", "SUPABASE_URL", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "BUCKET_NAME", "SERVE_URL", "PARKOUR_FOLDER_ID"]; missing = [k for k, v in {k: os.getenv(k) for k in critical}.items() if not v]; exit(f"::error::Missing critical secrets: {missing}") if missing else print("All critical secrets found.")'
 
       - name: Install Python Requirements
         run: |

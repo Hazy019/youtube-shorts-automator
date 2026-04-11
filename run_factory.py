@@ -34,7 +34,8 @@ def check_environment():
     """Verify critical environment variables are present before starting."""
     required = [
         "GEMINI_API_KEY", "SUPABASE_URL", "SUPABASE_KEY", 
-        "BUCKET_NAME", "SERVE_URL", "PARKOUR_FOLDER_ID"
+        "BUCKET_NAME", "SERVE_URL", "PARKOUR_FOLDER_ID",
+        "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"
     ]
     missing = [k for k in required if not os.getenv(k)]
     if missing:
@@ -102,7 +103,7 @@ def produce_video(category, local_excludes=None):
 
     render_seed = int(time.time())
     ping_render_start(viral_package['title'])
-    final_video_url = make_cloud_video(
+    final_video_url, render_error = make_cloud_video(
         audio_url,
         video_urls,
         sfx_urls,
@@ -193,8 +194,8 @@ def produce_video(category, local_excludes=None):
         was_queued = (tiktok_status == "QUEUED")
         return topic, title, was_queued
     else:
-        print("\nRender failed. Check AWS CloudWatch logs.")
-        ping_error("Remotion render returned None", "AWS Lambda")
+        print(f"\nRender failed: {render_error}. Check AWS CloudWatch logs.")
+        ping_error(render_error or "Remotion render returned None", "AWS Lambda")
         return None, None, False
 
 def start_factory():

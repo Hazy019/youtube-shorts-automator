@@ -4,7 +4,7 @@ import math
 from remotion_lambda import RemotionClient, RenderMediaParams
 
 SERVE_URL = os.getenv("SERVE_URL")
-FUNCTION_NAME = os.getenv("FUNCTION_NAME", "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec")
+FUNCTION_NAME = os.getenv("FUNCTION_NAME") or "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec"
 REGION = "us-east-1"
 
 # How many times to retry a full render on AWS Concurrency / Rate Exceeded errors
@@ -79,8 +79,9 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
     print(f"Commanding Lambda to render {total_frames} frames with professional effects...", flush=True)
 
     if total_frames < 150:
-        print("ERROR: Video duration too short. Aborting render.", flush=True)
-        return None
+        err = "ERROR: Video duration too short. Aborting render."
+        print(err, flush=True)
+        return None, err
 
     # ─── CHUNK CALCULATION ────────────────────────────────────────────────────
     # Rule: Never create more than 10 renderer chunks for a 600s stitcher Lambda.
@@ -128,7 +129,7 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
 
         if output_url:
             print(f"\nSUCCESS! Render complete.", flush=True)
-            return output_url
+            return output_url, None
 
         # If it was a retriable error and we have retries left, loop again
         if error_data and _is_retriable_error(error_data) and render_attempt < RENDER_RETRIES:
@@ -136,5 +137,7 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
             continue
 
         # Any other fatal error (or exhausted retries), give up
-        print(f"\nRender failed. Check AWS CloudWatch logs.", flush=True)
+        err = f"Render failed: {error_data}"
+        print(f"\n{err}. Check AWS CloudWatch logs.", flush=True)
+        return None, err
 
