@@ -7,21 +7,32 @@ SERVE_URL = os.getenv("SERVE_URL")
 FUNCTION_NAME = os.getenv("FUNCTION_NAME") or "remotion-render-4-0-443-mem3008mb-disk2048mb-600sec"
 REGION = "us-east-1"
 
-# How many times to retry a full render on AWS Concurrency / Rate Exceeded errors
 RENDER_RETRIES = 3
-RENDER_RETRY_BASE_WAIT = 60  # seconds — doubles each retry (60, 120, 240)
+RENDER_RETRY_BASE_WAIT = 60
 
-def _is_retriable_error(error_data) -> bool:
+def _is_concurrency_error(error_data) -> bool:
     """
-    Returns True for any error class that benefits from a cooldown + retry.
-    Covers: AWS concurrency limits, rate exceeded, AND stitcher timeouts.
+    Returns True for AWS concurrency / rate errors that benefit from a
+    cooldown + retry (waiting for Lambda capacity to free up).
+    NOTE: Stitcher timeouts are intentionally excluded — retrying with the
+    same chunk config will ALWAYS time out again and wastes 50+ minutes.
     """
     err_str = str(error_data).lower()
     return (
         "concurrency limit" in err_str
         or "rate exceeded" in err_str
-        or "timed out" in err_str           # stitcher timeout
-        or "chunks are missing" in err_str  # stitcher incomplete assembly
+    )
+
+def _is_stitcher_timeout(error_data) -> bool:
+    """
+    Returns True when the Lambda stitcher function itself timed out
+    (600-second hard limit) or produced incomplete chunks.
+    These are FATAL — a retry with the same params will always re-timeout.
+    """
+    err_str = str(error_data).lower()
+    return (
+        "timed out" in err_str
+        or "chunks are missing" in err_str
     )
 
 def _do_render(client, params):
@@ -44,16 +55,15 @@ def _do_render(client, params):
                 return None, "invoke_failed"
             time.sleep(5 * (2 ** attempt))
 
-    # Poll for completion
     consecutive_errors = 0
-    MAX_CONSECUTIVE_ERRORS = 10  # give up only after 10 back-to-back network failures
+    MAX_CONSECUTIVE_ERRORS = 10
     while True:
         try:
             status = client.get_render_progress(
                 render_id=render.render_id,
                 bucket_name=render.bucket_name
             )
-            consecutive_errors = 0  # reset on any successful poll
+            consecutive_errors = 0
 
             if getattr(status, 'fatalErrorEncountered', False):
                 error_data = getattr(status, 'errors', 'Unknown Error')
@@ -90,18 +100,12 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
         print(err, flush=True)
         return None, err
 
-    # ─── CHUNK CALCULATION ────────────────────────────────────────────────────
-    # Cap at 8 chunks max — stitcher Lambda has 600s timeout.
-    # At 600 frames/chunk: a 90s video (2700 frames) = 5 chunks → well within budget.
-    # ─────────────────────────────────────────────────────────────────────────
-    frames_per_lambda = max(600, math.ceil(total_frames / 8))
+    frames_per_lambda = max(300, min(400, math.ceil(total_frames / 4)))
     chunk_count = math.ceil(total_frames / frames_per_lambda)
-    print(f"Render plan: {total_frames} frames → {chunk_count} chunks @ {frames_per_lambda} fps/chunk", flush=True)
+    print(f"Render plan: {total_frames} frames → {chunk_count} chunks @ {frames_per_lambda} frames/chunk", flush=True)
 
     bgm_volume = 0.18 if category == "gaming" else 0.12
 
-    # Wrap RenderMediaParams construction to handle older SDK versions
-    # that don't support frames_per_lambda / concurrency_per_lambda.
     try:
         params = RenderMediaParams(
             serve_url=SERVE_URL,
@@ -125,7 +129,6 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
             }
         )
     except TypeError:
-        # Older remotion-lambda SDK — fall back to base params without chunk control
         print("  Warning: SDK does not support frames_per_lambda — using defaults.", flush=True)
         params = RenderMediaParams(
             serve_url=SERVE_URL,
@@ -161,12 +164,18 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
             print(f"\nSUCCESS! Render complete.", flush=True)
             return output_url, None
 
-        # If it was a retriable error and we have retries left, loop again
-        if error_data and _is_retriable_error(error_data) and render_attempt < RENDER_RETRIES:
-            print(f"  Retriable error detected — will retry after cooldown.", flush=True)
-            continue
+        if error_data and _is_stitcher_timeout(error_data):
+            err = (
+                f"Render failed (stitcher timeout — Lambda 600s limit exceeded). "
+                f"The video may be too long or chunk config needs adjustment. "
+                f"NOT retrying. Check AWS CloudWatch logs."
+            )
+            print(f"\n{err}", flush=True)
+            return None, err
 
-        # Any other fatal error (or exhausted retries), give up
+        if error_data and _is_concurrency_error(error_data) and render_attempt < RENDER_RETRIES:
+            print(f"  AWS concurrency error — will retry after cooldown.", flush=True)
+            continue
         err = f"Render failed: {error_data}"
         print(f"\n{err}. Check AWS CloudWatch logs.", flush=True)
         return None, err

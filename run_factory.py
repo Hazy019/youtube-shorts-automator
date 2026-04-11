@@ -209,8 +209,13 @@ def produce_video(category, local_excludes=None):
         was_queued = (tiktok_status == "QUEUED")
         return topic, title, was_queued
     else:
-        print(f"\nRender failed: {render_error}. Check AWS CloudWatch logs.")
-        ping_error(render_error or "Remotion render returned None", "AWS Lambda")
+        # render_error may be a raw Python list from the Remotion SDK (its 'errors' field).
+        # str(list) can produce 10,000+ characters — Discord rejects messages >2000 chars
+        # with a silent HTTP 400, which is swallowed by _post()'s exception handler.
+        # Always coerce to a capped string before pinging.
+        safe_render_err = str(render_error or "Remotion render returned None")[:1200]
+        print(f"\nRender failed: {safe_render_err}. Check AWS CloudWatch logs.")
+        ping_error(safe_render_err, "AWS Lambda")
         return None, None, False
 
 def start_factory():
