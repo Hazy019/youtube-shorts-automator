@@ -187,15 +187,22 @@ def sync_drive_to_s3(folder_id, num_clips, media_type="video"):
 
 def _fetch_pexels(keyword, num_clips, page=None):
     """
-    Fetch Pexels videos for a keyword.
-    Randomizes page (1-5) for variety. Returns portrait-optimized URLs.
+    Fetch Pexels videos for a keyword and mirror them to S3.
+
+    Raw Pexels/Vimeo CDN links are throttled for non-browser (Puppeteer) requests
+    inside Lambda — a single 1080p clip can take 200-500 s to stream-download,
+    which blows the 600 s stitcher budget before a single frame is rendered.
+
+    Fix: download each clip here (on the GitHub Actions runner, which has fast
+    outbound bandwidth) and upload to S3. Lambda then fetches the pre-signed S3
+    URL at ~1 Gbps (same AWS network) — near-instant regardless of clip size.
     """
     api_key = os.getenv("PEXELS_API_KEY")
     if not api_key:
         return []
 
     if page is None:
-        page = random.randint(1, 5)  # extra page for more variety
+        page = random.randint(1, 5)
 
     fetch_count = max(num_clips * 3, 9)
     base_url = (
@@ -211,7 +218,6 @@ def _fetch_pexels(keyword, num_clips, page=None):
         ).json()
         videos = resp.get("videos", [])
 
-        # If random page had no results, try page 1
         if not videos and page != 1:
             resp = requests.get(
                 f"{base_url}&page=1",
@@ -230,7 +236,6 @@ def _fetch_pexels(keyword, num_clips, page=None):
                 used = db.table("used_clips").select("file_id").execute()
                 used_ids = {str(c["file_id"]) for c in used.data}
                 fresh_videos = [v for v in videos if str(v.get("id")) not in used_ids]
-                
                 if not fresh_videos:
                     print(f"  All {len(videos)} Pexels videos on this page were used. Proceeding with variety.")
                     fresh_videos = videos
@@ -239,32 +244,67 @@ def _fetch_pexels(keyword, num_clips, page=None):
                 print(f"  Pexels dedup warning: {e}")
 
         random.shuffle(videos)
+
+        # ── S3 client (reuse same config as sync_drive_to_s3) ──────────────────
+        s3 = boto3.client(
+            "s3",
+            region_name="us-east-1",
+            config=Config(region_name="us-east-1", s3={"addressing_style": "virtual"}),
+        )
+
         urls = []
         for video in videos[:num_clips]:
             # Log usage
             if db:
                 try:
                     db.table("used_clips").insert({
-                        "file_id": str(video.get("id")), 
-                        "file_name": f"pexels_{video.get('id')}", 
+                        "file_id": str(video.get("id")),
+                        "file_name": f"pexels_{video.get('id')}",
                         "media_type": "pexels_video"
                     }).execute()
                 except Exception:
                     pass
 
+            # Pick best portrait file capped at 1080p to avoid Lambda OOM on 4K
             files = video.get("video_files", [])
             portrait = [f for f in files if f.get("height", 0) > f.get("width", 0)]
             if portrait:
                 portrait.sort(key=lambda f: f.get("height", 0), reverse=True)
-                # Cap at 1080p to avoid Lambda OOM on 4K files
                 chosen = next(
-                    (f for f in portrait if f.get("height", 9999) <= 1920),
+                    (f for f in portrait if f.get("height", 9999) <= 1080),
                     portrait[0]
                 )
             else:
                 chosen = files[0] if files else None
-            if chosen:
-                urls.append(chosen["link"])
+
+            if not chosen:
+                continue
+
+            cdn_url = chosen["link"]
+            video_id = video.get("id", uuid.uuid4().hex)
+            print(f"  Pexels → S3: [{keyword}] video {video_id} ({chosen.get('height', '?')}p)")
+
+            # Download from Pexels CDN (fast on GitHub runner) → stream to S3
+            try:
+                with requests.get(cdn_url, stream=True, timeout=120) as r:
+                    r.raise_for_status()
+                    key = f"backgrounds/pexels_{video_id}_{uuid.uuid4().hex[:8]}.mp4"
+                    s3.upload_fileobj(
+                        r.raw,
+                        BUCKET_NAME,
+                        key,
+                        ExtraArgs={"ContentType": "video/mp4"},
+                    )
+                presigned = s3.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": BUCKET_NAME, "Key": key},
+                    ExpiresIn=7200,
+                )
+                urls.append(presigned)
+                print(f"    ✓ Uploaded to S3 → Lambda will fetch at wire speed.")
+            except Exception as e:
+                print(f"  Pexels S3 upload failed for video {video_id}: {e} — skipping clip.")
+                continue
 
         return urls
 
