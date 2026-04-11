@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Webhook URLs ──────────────────────────────────────────────────────────────
-# factory.yml writes DISCORD_WEBHOOK_LOGS, WEBHOOK_ERRORS, WEBHOOK_POSTS, WEBHOOK_INSIGHTS
-# to the .env file. All fall back to DISCORD_WEBHOOK_URL if specific ones not set.
-URL_LOGS     = os.getenv("DISCORD_WEBHOOK_LOGS")     or os.getenv("DISCORD_WEBHOOK_URL")
+# factory.yml writes: WEBHOOK_LOGS, WEBHOOK_ERRORS, WEBHOOK_POSTS, WEBHOOK_INSIGHTS, WEBHOOK_QUEUE
+# All fall back to DISCORD_WEBHOOK_URL if specific ones are not set.
+URL_LOGS     = os.getenv("WEBHOOK_LOGS")     or os.getenv("DISCORD_WEBHOOK_LOGS") or os.getenv("DISCORD_WEBHOOK_URL")
 URL_ERRORS   = os.getenv("WEBHOOK_ERRORS")   or os.getenv("DISCORD_WEBHOOK_URL")
 URL_POSTS    = os.getenv("WEBHOOK_POSTS")    or os.getenv("DISCORD_WEBHOOK_URL")
 URL_INSIGHTS = os.getenv("WEBHOOK_INSIGHTS") or os.getenv("DISCORD_WEBHOOK_URL")
@@ -105,21 +105,43 @@ def ping_analytics_insight(insight_text):
     _post(URL_INSIGHTS, f" **AI INSIGHT**\n{insight_text}")
 
 
-def ping_queue(titles):
-    """Notify when videos are rendered and added to the Supabase retry queue."""
-    if not titles:
-        return
-        
-    count = len(titles)
-    title_list = "\n".join([f"{i+1}. `{t}`" for i, t in enumerate(titles)])
-    
-    print(f"Sending queue notification for {count} videos...")
-    _post(URL_QUEUE, (
-        f" **RETRY QUEUE UPDATED**\n"
-        f"Hey <@{PING_ID}>! **{count}** new videos are rendered and waiting for you in the local retry manager:\n\n"
-        f"{title_list}\n\n"
-        f" *Ready for bulk upload!*"
-    ))
+def ping_queue(_new_titles=None):
+    """
+    Queries Supabase for the exact state of the TikTok queue.
+    Called after a shift completes — by then the new video is already written
+    to Supabase as PENDING, so the DB is the single source of truth.
+    The _new_titles argument is accepted for backward compatibility but unused.
+    """
+    try:
+        from supabase import create_client
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
+        if not url or not key:
+            print("  Queue skip: Missing Supabase credentials.")
+            return
+
+        db = create_client(url, key)
+        result = db.table("videos").select("title").eq("tiktok_status", "PENDING").execute()
+
+        pending_titles = [row["title"] for row in result.data if row.get("title")]
+        count = len(pending_titles)
+
+        if count == 0:
+            print("  Queue is empty, no ping needed.")
+            return
+
+        title_list = "\n".join([f"{i+1}. `{t}`" for i, t in enumerate(pending_titles)])
+
+        print(f"Sending queue notification ({count} total pending videos)...")
+        _post(URL_QUEUE, (
+            f"📥 **RETRY QUEUE UPDATED**\n"
+            f"Hey <@{PING_ID}>! You have **{count}** video(s) waiting in the local retry manager:\n\n"
+            f"{title_list}\n\n"
+            f"🎬 *Run `bulk_tiktok_poster.py` to upload!*"
+        ))
+
+    except Exception as e:
+        print(f"  Queue fetch warning: {e}")
 
 
 def ping_tiktok_success(topic):
