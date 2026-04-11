@@ -25,8 +25,6 @@ def redact_secrets(text):
     if not text:
         return text
     
-    # Redact common API key patterns (GPT, Gemini, ElevenLabs, etc)
-    # sk-..., AIza..., AKIA..., SG....
     patterns = [
         r"sk-[a-zA-Z0-9_\-]{20,}",           # OpenAI / general sk-
         r"AIza[a-zA-Z0-9_\-]{30,}",          # Google AI / Gemini
@@ -136,15 +134,31 @@ def ping_queue(new_titles=None):
         return
 
     count = len(all_titles)
-    title_list = "\n".join([f"{i+1}. `{t}`" for i, t in enumerate(all_titles)])
+    
+    # Discord has a 2000 character limit. Large queues will cause silent 400 errors.
+    # We truncate the list to the first 15 items and show a count of the rest.
+    display_limit = 15
+    display_titles = all_titles[:display_limit]
+    
+    title_list = "\n".join([f"{i+1}. `{t}`" for i, t in enumerate(display_titles)])
+    
+    if count > display_limit:
+        remaining = count - display_limit
+        title_list += f"\n*...and {remaining} more videos in the queue.*"
 
-    print(f"Sending queue notification ({count} total pending videos)...")
-    _post(URL_QUEUE, (
+    # Final length safety check
+    message = (
         f"📥 **RETRY QUEUE UPDATED**\n"
         f"Hey <@{PING_ID}>! You have **{count}** video(s) waiting in the local retry manager:\n\n"
         f"{title_list}\n\n"
         f"🎬 *Run `bulk_tiktok_poster.py` to upload!*"
-    ))
+    )
+    
+    if len(message) > 1950:
+        message = message[:1900] + "\n\n**[MESSAGE TRUNCATED DUE TO LENGTH]**"
+
+    print(f"Sending queue notification ({count} total pending videos)...")
+    _post(URL_QUEUE, message)
 
 
 def ping_tiktok_success(topic):

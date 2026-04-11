@@ -143,10 +143,25 @@ def drain_tiktok_queue():
                 
             result = thread_result
             
-            if isinstance(result, list) and len(result) > 0:
-                print(f"[RETRY ERROR] {result[0]}")
-                print("TikTok blocked the upload again. Retaining in PENDING status.")
-            else:
+            # result from tiktok-uploader is a list of failed videos. 
+            # Empty list [] means 100% success.
+            was_successful = False
+            if isinstance(result, list):
+                if len(result) == 0:
+                    was_successful = True
+                else:
+                    err_msg = str(result[0]).lower()
+                    print(f"  TikTok Result Detail: {result[0]}")
+                    
+                    # If it was already uploaded, that's a success for our queue's purposes.
+                    if "already uploaded" in err_msg or "already_uploaded" in err_msg:
+                        print("  Video was already on TikTok. Marking as SUCCESS.")
+                        was_successful = True
+                    else:
+                        print(f"[RETRY ERROR] {result[0]}")
+                        print("  TikTok blocked the upload. Retaining in PENDING status for manual retry.")
+            
+            if was_successful:
                 # 3. Mark Success
                 print(f"SUCCESS! Uploaded {topic}")
                 db.table("videos").update({"tiktok_status": "SUCCESS"}).eq("id", video_id).execute()

@@ -244,8 +244,10 @@ def start_factory():
             ping_error(f"Shift crashed: {e}", "Orchestrator")
             overall_success = False
             
-        if queued_titles:
-            ping_queue(queued_titles)
+        # Always notify about the queue state — ping_queue queries Supabase for ALL
+        # PENDING videos, so even when the render failed and nothing new was queued
+        # this run, the user is reminded of any videos still waiting for upload.
+        ping_queue(queued_titles)
         
     except Exception as e:
         err_msg = f"Fatal Orchestrator Failure: {str(e)}"
