@@ -178,7 +178,7 @@ def sync_drive_to_s3(folder_id, num_clips, media_type="video"):
         key = f"{s3_prefix}{uuid.uuid4().hex}"
         s3.upload_fileobj(fh, BUCKET_NAME, key, ExtraArgs={"ContentType": content_type})
         url = s3.generate_presigned_url(
-            "get_object", Params={"Bucket": BUCKET_NAME, "Key": key}, ExpiresIn=3600
+            "get_object", Params={"Bucket": BUCKET_NAME, "Key": key}, ExpiresIn=7200
         )
         urls.append(url)
 
@@ -188,14 +188,14 @@ def sync_drive_to_s3(folder_id, num_clips, media_type="video"):
 def _fetch_pexels(keyword, num_clips, page=None):
     """
     Fetch Pexels videos for a keyword.
-    Randomizes page (1-4) for variety. Returns portrait-optimized URLs.
+    Randomizes page (1-5) for variety. Returns portrait-optimized URLs.
     """
     api_key = os.getenv("PEXELS_API_KEY")
     if not api_key:
         return []
 
     if page is None:
-        page = random.randint(1, 4)
+        page = random.randint(1, 5)  # extra page for more variety
 
     fetch_count = max(num_clips * 3, 9)
     base_url = (

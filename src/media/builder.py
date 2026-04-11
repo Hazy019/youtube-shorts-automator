@@ -8,8 +8,8 @@ FUNCTION_NAME = os.getenv("FUNCTION_NAME") or "remotion-render-4-0-443-mem3008mb
 REGION = "us-east-1"
 
 # How many times to retry a full render on AWS Concurrency / Rate Exceeded errors
-RENDER_RETRIES = 4
-RENDER_RETRY_BASE_WAIT = 60  # seconds — doubles each retry (60, 120, 240, 480)
+RENDER_RETRIES = 3
+RENDER_RETRY_BASE_WAIT = 60  # seconds — doubles each retry (60, 120, 240)
 
 def _is_retriable_error(error_data) -> bool:
     """
@@ -45,12 +45,15 @@ def _do_render(client, params):
             time.sleep(5 * (2 ** attempt))
 
     # Poll for completion
+    consecutive_errors = 0
+    MAX_CONSECUTIVE_ERRORS = 10  # give up only after 10 back-to-back network failures
     while True:
         try:
             status = client.get_render_progress(
                 render_id=render.render_id,
                 bucket_name=render.bucket_name
             )
+            consecutive_errors = 0  # reset on any successful poll
 
             if getattr(status, 'fatalErrorEncountered', False):
                 error_data = getattr(status, 'errors', 'Unknown Error')
@@ -67,7 +70,11 @@ def _do_render(client, params):
             print(f"Progress: {getattr(status, 'overallProgress', 0) * 100:.1f}%", end="\r", flush=True)
 
         except Exception as e:
-            print(f"\nNetwork error polling render status: {e}. Retrying in 5s...", flush=True)
+            consecutive_errors += 1
+            print(f"\nNetwork error polling render status ({consecutive_errors}/{MAX_CONSECUTIVE_ERRORS}): {e}. Retrying in 5s...", flush=True)
+            if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                print("  FATAL: Too many consecutive poll errors. Aborting.", flush=True)
+                return None, f"Poll failed after {MAX_CONSECUTIVE_ERRORS} consecutive errors: {e}"
 
         time.sleep(5)
 
@@ -84,38 +91,61 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
         return None, err
 
     # ─── CHUNK CALCULATION ────────────────────────────────────────────────────
-    # Rule: Never create more than 10 renderer chunks for a 600s stitcher Lambda.
-    # Fewer chunks = fewer cold-starts = stitcher finishes in 30-90s not 600s.
-    # At 600 frames/chunk: a 90s video (2700 frames) = 5 chunks.
-    # Each chunk renders ~20s of video in ~40-80s wall time. Well within 600s.
+    # Cap at 8 chunks max — stitcher Lambda has 600s timeout.
+    # At 600 frames/chunk: a 90s video (2700 frames) = 5 chunks → well within budget.
     # ─────────────────────────────────────────────────────────────────────────
-    frames_per_lambda = max(600, math.ceil(total_frames / 10))
+    frames_per_lambda = max(600, math.ceil(total_frames / 8))
     chunk_count = math.ceil(total_frames / frames_per_lambda)
     print(f"Render plan: {total_frames} frames → {chunk_count} chunks @ {frames_per_lambda} fps/chunk", flush=True)
 
     bgm_volume = 0.18 if category == "gaming" else 0.12
 
-    params = RenderMediaParams(
-        serve_url=SERVE_URL,
-        composition="MyComp",
-        force_duration_in_frames=total_frames,
-        frames_per_lambda=frames_per_lambda,  # dynamic — never causes stitcher timeout
-        concurrency_per_lambda=2,             # MUST match available vCPUs (2 for 3008MB)
-        input_props={
-            "audioUrl": voice_url,
-            "videoUrls": background_urls,
-            "sfxUrls": sfx_urls,
-            "bgmUrl": bgm_url,
-            "bgmVolume": bgm_volume,
-            "segments": segments_data,
-            "renderSeed": render_seed,
-            "effects": {
-                "zoom": True,
-                "transition": "fade",
-                "textStyle": "bold"
+    # Wrap RenderMediaParams construction to handle older SDK versions
+    # that don't support frames_per_lambda / concurrency_per_lambda.
+    try:
+        params = RenderMediaParams(
+            serve_url=SERVE_URL,
+            composition="MyComp",
+            force_duration_in_frames=total_frames,
+            frames_per_lambda=frames_per_lambda,
+            concurrency_per_lambda=2,
+            input_props={
+                "audioUrl": voice_url,
+                "videoUrls": background_urls,
+                "sfxUrls": sfx_urls,
+                "bgmUrl": bgm_url,
+                "bgmVolume": bgm_volume,
+                "segments": segments_data,
+                "renderSeed": render_seed,
+                "effects": {
+                    "zoom": True,
+                    "transition": "fade",
+                    "textStyle": "bold"
+                }
             }
-        }
-    )
+        )
+    except TypeError:
+        # Older remotion-lambda SDK — fall back to base params without chunk control
+        print("  Warning: SDK does not support frames_per_lambda — using defaults.", flush=True)
+        params = RenderMediaParams(
+            serve_url=SERVE_URL,
+            composition="MyComp",
+            force_duration_in_frames=total_frames,
+            input_props={
+                "audioUrl": voice_url,
+                "videoUrls": background_urls,
+                "sfxUrls": sfx_urls,
+                "bgmUrl": bgm_url,
+                "bgmVolume": bgm_volume,
+                "segments": segments_data,
+                "renderSeed": render_seed,
+                "effects": {
+                    "zoom": True,
+                    "transition": "fade",
+                    "textStyle": "bold"
+                }
+            }
+        )
 
     print(f"Requesting AWS Lambda Render (ID tracking enabled)...", flush=True)
 

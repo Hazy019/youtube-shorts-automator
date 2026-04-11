@@ -105,43 +105,46 @@ def ping_analytics_insight(insight_text):
     _post(URL_INSIGHTS, f" **AI INSIGHT**\n{insight_text}")
 
 
-def ping_queue(_new_titles=None):
+def ping_queue(new_titles=None):
     """
-    Queries Supabase for the exact state of the TikTok queue.
-    Called after a shift completes — by then the new video is already written
-    to Supabase as PENDING, so the DB is the single source of truth.
-    The _new_titles argument is accepted for backward compatibility but unused.
+    Sends the TikTok queue notification.
+    Primary: queries Supabase for ALL PENDING videos for the full cumulative list.
+    Fallback: uses the locally known new_titles if Supabase is unavailable or
+              returns 0 results (e.g. if the DB insert was skipped silently),
+              ensuring a notification is ALWAYS sent when a video was queued.
     """
+    fallback = list(new_titles) if new_titles else []
+    all_titles = fallback  # guaranteed baseline — overwritten if DB has data
+
     try:
         from supabase import create_client
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_KEY")
-        if not url or not key:
-            print("  Queue skip: Missing Supabase credentials.")
-            return
-
-        db = create_client(url, key)
-        result = db.table("videos").select("title").eq("tiktok_status", "PENDING").execute()
-
-        pending_titles = [row["title"] for row in result.data if row.get("title")]
-        count = len(pending_titles)
-
-        if count == 0:
-            print("  Queue is empty, no ping needed.")
-            return
-
-        title_list = "\n".join([f"{i+1}. `{t}`" for i, t in enumerate(pending_titles)])
-
-        print(f"Sending queue notification ({count} total pending videos)...")
-        _post(URL_QUEUE, (
-            f"📥 **RETRY QUEUE UPDATED**\n"
-            f"Hey <@{PING_ID}>! You have **{count}** video(s) waiting in the local retry manager:\n\n"
-            f"{title_list}\n\n"
-            f"🎬 *Run `bulk_tiktok_poster.py` to upload!*"
-        ))
-
+        if url and key:
+            db = create_client(url, key)
+            result = db.table("videos").select("title").eq("tiktok_status", "PENDING").execute()
+            pending_titles = [row["title"] for row in result.data if row.get("title")]
+            if pending_titles:
+                all_titles = pending_titles  # DB is authoritative when it has data
+            else:
+                print("  Queue: DB returned 0 PENDING rows — using locally known titles as fallback.")
     except Exception as e:
-        print(f"  Queue fetch warning: {e}")
+        print(f"  Queue DB fetch warning (using local titles): {e}")
+
+    if not all_titles:
+        print("  Queue is empty, no ping needed.")
+        return
+
+    count = len(all_titles)
+    title_list = "\n".join([f"{i+1}. `{t}`" for i, t in enumerate(all_titles)])
+
+    print(f"Sending queue notification ({count} total pending videos)...")
+    _post(URL_QUEUE, (
+        f"📥 **RETRY QUEUE UPDATED**\n"
+        f"Hey <@{PING_ID}>! You have **{count}** video(s) waiting in the local retry manager:\n\n"
+        f"{title_list}\n\n"
+        f"🎬 *Run `bulk_tiktok_poster.py` to upload!*"
+    ))
 
 
 def ping_tiktok_success(topic):

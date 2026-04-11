@@ -95,4 +95,4 @@ def generate_voiceover(script_text):
     s3.upload_file(local_file, BUCKET_NAME, s3_key, ExtraArgs={'ContentType': 'audio/mpeg'})
     
     os.remove(local_file)
-    return s3.generate_presigned_url('get_object', Params={'Bucket': BUCKET_NAME, 'Key': s3_key}, ExpiresIn=3600), duration_seconds, None
+    return s3.generate_presigned_url('get_object', Params={'Bucket': BUCKET_NAME, 'Key': s3_key}, ExpiresIn=7200), duration_seconds, None

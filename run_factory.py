@@ -17,8 +17,10 @@ load_dotenv()
 
 # --- SECURITY & SANITY CHECKS ------------------------------------------------
 ALLOWED_RENDER_DOMAINS = [
+    "s3.amazonaws.com",          # generic AWS S3
     "s3.us-east-1.amazonaws.com",
-    "remotion-render", # For local/direct lambda testing if applicable
+    "s3.us-west-2.amazonaws.com",
+    "remotion-render",           # direct lambda testing
 ]
 
 def validate_render_url(url):
@@ -85,12 +87,12 @@ def produce_video(category, local_excludes=None):
         return None, None, False
 
     video_urls = get_background_videos(
-        topic, 
-        search_keyword, 
-        backup_keywords=viral_package.get('backup_keywords'), 
-        num_clips=1
+        topic,
+        search_keyword,
+        backup_keywords=viral_package.get('backup_keywords'),
+        num_clips=3   # 3 clips = 3 visual cuts = 70%+ retention
     )
-    sfx_urls = get_sfx_urls(num_sfx=len(viral_package['segments']))
+    sfx_urls = get_sfx_urls(num_sfx=max(7, len(viral_package['segments'])))
 
     bgm_url = get_bgm_url(category=category)
 
@@ -174,11 +176,24 @@ def produce_video(category, local_excludes=None):
             hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
             tiktok_description = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
 
-            supabase.table("videos").update({
-                "tiktok_status": "PENDING",
-                "s3_video_url": final_video_url,
+            tiktok_payload = {
+                "tiktok_status":    "PENDING",
+                "s3_video_url":     final_video_url,
                 "tiktok_description": tiktok_description
-            }).eq("topic", full_package['topic']).execute()
+            }
+
+            # Try update first (row should exist from brain.py insert)
+            result = supabase.table("videos").update(tiktok_payload).eq("topic", full_package['topic']).execute()
+
+            # If no rows matched, the brain.py insert was skipped — insert the row now
+            if not result.data:
+                print("  Row not found — inserting new Supabase record.")
+                supabase.table("videos").insert({
+                    "topic": full_package['topic'],
+                    "title": viral_package['title'],
+                    **tiktok_payload
+                }).execute()
+
             print("Supabase updated with TikTok metadata.")
         except Exception as e:
             print(f"Warning: Failed to queue for TikTok: {e}")
