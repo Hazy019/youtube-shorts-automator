@@ -128,7 +128,7 @@ def produce_video(category, local_excludes=None):
         local_filename = f"temp_render_{category}.mp4"
         for attempt in range(3):
             try:
-                r = requests.get(final_video_url, stream=True, timeout=60)
+                r = requests.get(final_video_url, stream=True, timeout=120)
                 r.raise_for_status()
                 with open(local_filename, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
