@@ -279,7 +279,7 @@ STYLE REFERENCE — match this energy and format (do not copy topics):
 {examples}
 
 RULES — all mandatory:
-R1.  topic ends in "..." and triggers instant curiosity or disbelief.
+R1.  topic MUST frame a 'secret', 'hidden', 'forbidden', or 'unmasked' mystery that creates an immediate curiosity gap. Ends in "...".
 R2.  No emojis anywhere in the JSON.
 R3.  All facts must be accurate and verifiable. Do not invent events.
 R4.  description: 400+ words. Hook sentence first. 3+ hashtags at end.
@@ -295,6 +295,7 @@ R13. Segment 0: end <= 3.0s | effect=pop | position=top | one scroll-stopping ho
 R14. Segment 1: effect=typewriter | must include "stay till the end" or equivalent phrase.
 R15. Last segment: effect=pop | position=bottom | strong like/follow/comment CTA.
 R16. search_keyword: {keyword_hint}
+R17. Prioritize topic patterns identified in the ANALYTICS FEEDBACK section (e.g. emphasize 'Secret' hooks).
 
 Return ONLY the JSON. No preamble, no explanation, no markdown fences.
 
@@ -325,11 +326,11 @@ def generate_full_package(category, local_excludes=None):
     if category == "gaming":
         theme        = "Fascinating video game lore, hidden easter eggs, speedrunning records, mind-blowing mechanics, and developer secrets across all major titles."
         examples     = (
-            "- The impossible Super Mario 64 glitch that took speedrunners 20 years to solve...\n"
-            "- Why the developers of GTA V hid an alien frozen under the ice...\n"
-            "- The terrifying lore reason Minecraft Endermen hate eye contact...\n"
-            "- How one player broke Elden Ring's entire economy in a single session...\n"
-            "- The hidden developer message encoded inside the original Doom soundtrack..."
+            "- The forbidden developer message encoded inside the original Doom soundtrack...\n"
+            "- The secret developer room in Minecraft that Mojang refuses to acknowledge...\n"
+            "- Why the developers of GTA V hid an alien unmasked under the ice...\n"
+            "- The hidden biological secret making Minecraft Endermen hate eye contact...\n"
+            "- The impossible Super Mario 64 glitch that took 20 years to solve..."
         )
         keyword_hint = 'Return ONLY the string "Parkour". Gaming b-roll always uses parkour footage.'
         sfx_style    = "energetic, punchy — glitch and pop effects aggressively"
@@ -337,11 +338,11 @@ def generate_full_package(category, local_excludes=None):
     else:
         theme        = "Mind-blowing science, untold history, psychology tricks, and counterintuitive facts."
         examples     = (
-            "- The biological mechanism making sleep deprivation feel like being drunk...\n"
-            "- Why the Mona Lisa has no eyebrows and what it reveals about the Renaissance...\n"
-            "- The counterintuitive psychology behind why lottery winners lose happiness...\n"
-            "- How ancient Romans discovered concrete stronger than modern steel...\n"
-            "- Why your brain literally cannot tell the difference between physical and emotional pain..."
+            "- The hidden biological secret making sleep deprivation feel like being drunk...\n"
+            "- The forgotten historical mystery of why the Mona Lisa has no eyebrows...\n"
+            "- The secret psychology unmasked: why lottery winners lose happiness...\n"
+            "- The forbidden knowledge of how ancient Romans built concrete stronger than steel...\n"
+            "- The hidden anomaly: why your brain cannot tell the difference between physical and emotional pain..."
         )
         keyword_hint = (
             "A SPECIFIC 2-word Pexels video search term that visually matches the topic.\n"

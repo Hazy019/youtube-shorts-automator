@@ -100,7 +100,7 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
         print(err, flush=True)
         return None, err
 
-    frames_per_lambda = max(600, min(1200, math.ceil(total_frames / 3)))
+    frames_per_lambda = max(800, min(2400, math.ceil(total_frames / 2)))
     chunk_count = math.ceil(total_frames / frames_per_lambda)
     print(f"Render plan: {total_frames} frames → {chunk_count} chunks @ {frames_per_lambda} frames/chunk", flush=True)
 
