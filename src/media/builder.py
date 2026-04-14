@@ -100,7 +100,7 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
         print(err, flush=True)
         return None, err
 
-    frames_per_lambda = max(800, min(2400, math.ceil(total_frames / 2)))
+    frames_per_lambda = 300
     chunk_count = math.ceil(total_frames / frames_per_lambda)
     print(f"Render plan: {total_frames} frames → {chunk_count} chunks @ {frames_per_lambda} frames/chunk", flush=True)
 
@@ -112,8 +112,8 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
             composition="MyComp",
             force_duration_in_frames=total_frames,
             frames_per_lambda=frames_per_lambda,
-            concurrency_per_lambda=2,
-            timeout_in_milliseconds=120000,
+            concurrency_per_lambda=1,
+            timeout_in_milliseconds=600000,
             input_props={
                 "audioUrl": voice_url,
                 "videoUrls": background_urls,
@@ -135,7 +135,7 @@ def make_cloud_video(voice_url, background_urls, sfx_urls, bgm_url, segments_dat
             serve_url=SERVE_URL,
             composition="MyComp",
             force_duration_in_frames=total_frames,
-            timeout_in_milliseconds=120000,
+            timeout_in_milliseconds=600000,
             input_props={
                 "audioUrl": voice_url,
                 "videoUrls": background_urls,

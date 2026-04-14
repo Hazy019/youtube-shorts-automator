@@ -73,7 +73,7 @@ const ZoomingVideo: React.FC<{
 
   return (
     <AbsoluteFill style={{ transform: `scale(${scale}) translateX(${shakeX}px)`, opacity }}>
-      <Video src={url} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <Video src={url} muted loop style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       <AbsoluteFill style={{ backgroundColor: 'white', opacity: flashOpacity }} />
     </AbsoluteFill>
   );
