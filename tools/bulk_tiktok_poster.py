@@ -68,117 +68,105 @@ def drain_tiktok_queue():
         
     print(f"Found {len(queue)} pending TikTok uploads in the queue.\n")
 
-    total_uploaded = 0
-    skips = 0
-    for i, item in enumerate(queue):
+    # Step 1: Batch Download
+    videos_to_upload = []
+    video_map = {} # path -> {id, topic}
+    
+    temp_dir = ".temp"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    for item in queue:
         video_id = item.get("id")
         topic = item.get("Topic")
         s3_url = item.get("s3_video_url")
         desc = item.get("tiktok_description")
         
         if not s3_url or not desc:
-            skips += 1
             continue
             
-        if skips > 0:
-            print(f"--- Skipped {skips} legacy items (missing S3 data) ---")
-            skips = 0
+        local_filename = os.path.abspath(os.path.join(temp_dir, f"queue_render_{video_id}.mp4"))
+        
+        if download_video(s3_url, local_filename):
+            videos_to_upload.append({
+                "path": local_filename,
+                "description": desc
+            })
+            video_map[local_filename] = {"id": video_id, "topic": topic}
 
-        print(f"--- Processing {i+1}/{len(queue)}: {topic} ---")
-            
-        temp_dir = ".temp"
-        os.makedirs(temp_dir, exist_ok=True)
-        local_filename = os.path.join(temp_dir, f"queue_render_{video_id}.mp4")
+    if not videos_to_upload:
+        print("No videos successfully downloaded. Aborting.")
+        return
+
+    print(f"\nDownloaded {len(videos_to_upload)} videos. Starting batch upload...")
+
+    # Step 2: Batch Upload
+    try:
+        from tiktok_uploader.upload import upload_videos
+        from src.api.tiktok import _prepare_cookies, _validate_netscape
         
-        # 1. Download
-        if not download_video(s3_url, local_filename):
-            continue
-            
-        # 2. Upload
-        # To avoid duplicating the caption building logic in tk_uploader, 
-        # tk_uploader expects title, description, and tags. 
-        # But we already baked the entire caption into the database's `tiktok_description`!
-        # So we can pass it as the "description" and leave title blank, or vice versa, but tk_uploader
-        # modifies it. Let's just pass the pre-baked description as the description, title empty, tags empty,
-        # and it will safely format it. But wait, tk_uploader says: f"{title}\n\n{description}\n\n{hashtags}"
-        # We can bypass tk_uploader and call upload_video directly here for full control over the caption!
+        cookies_path = _prepare_cookies()
+        if not cookies_path or not _validate_netscape(cookies_path):
+            print("FATAL: Invalid or missing TikTok Cookies.")
+            return
+
+        thread_result = None
+        thread_err = None
         
-        try:
-            import threading
-            from tiktok_uploader.upload import upload_video
+        def _run_upload():
+            nonlocal thread_result, thread_err
+            try:
+                # Returns a list of FAILED videos
+                thread_result = upload_videos(
+                    videos_to_upload,
+                    cookies=cookies_path,
+                    headless=False, # User is local, needs to solve captchas
+                )
+            except Exception as e:
+                thread_err = e
+        
+        print(f"Launching BATCH browser session (keep window open for all posts)...")
+        import threading
+        t = threading.Thread(target=_run_upload)
+        t.start()
+        t.join()
+        
+        if thread_err:
+            raise thread_err
             
-            # Use same resolve logic from tk_uploader for cookies
-            from src.api.tiktok import _prepare_cookies, _validate_netscape
+        failed_videos = thread_result or []
+        failed_paths = {v.get("path") for v in failed_videos if v.get("path")}
+
+        # Step 3: Process Results
+        total_uploaded = 0
+        for video in videos_to_upload:
+            path = video["path"]
+            info = video_map.get(path)
+            if not info: continue
             
-            cookies_path = _prepare_cookies()
-            if not cookies_path or not _validate_netscape(cookies_path):
-                print("FATAL: Invalid or missing TikTok Cookies. Stop to fix cookies.")
-                break
-                
-            thread_result = None
-            thread_err = None
-            
-            # Since user runs this manually locally, headless is ALWAYS False so they can solve captchas
-            is_headless = False
-            
-            def _run_upload():
-                nonlocal thread_result, thread_err
-                try:
-                    thread_result = upload_video(
-                        local_filename,
-                        description=desc,
-                        cookies=cookies_path,
-                        headless=is_headless,
-                    )
-                except Exception as e:
-                    thread_err = e
-            
-            print(f"Launching LOCAL browser (captcha manual solving enabled)...")
-            t = threading.Thread(target=_run_upload)
-            t.start()
-            t.join()
-            
-            if thread_err:
-                raise thread_err
-                
-            result = thread_result
-            
-            # result from tiktok-uploader is a list of failed videos. 
-            # Empty list [] means 100% success.
-            was_successful = False
-            if isinstance(result, list):
-                if len(result) == 0:
-                    was_successful = True
-                else:
-                    err_msg = str(result[0]).lower()
-                    print(f"  TikTok Result Detail: {result[0]}")
-                    
-                    # If it was already uploaded, that's a success for our queue's purposes.
-                    if "already uploaded" in err_msg or "already_uploaded" in err_msg:
-                        print("  Video was already on TikTok. Marking as SUCCESS.")
-                        was_successful = True
-                    else:
-                        print(f"[RETRY ERROR] {result[0]}")
-                        print("  TikTok blocked the upload. Retaining in PENDING status for manual retry.")
-            
-            if was_successful:
-                # 3. Mark Success
-                print(f"SUCCESS! Uploaded {topic}")
-                db.table("videos").update({"tiktok_status": "SUCCESS"}).eq("id", video_id).execute()
-                print("Marked as SUCCESS in Supabase.")
+            if path in failed_paths:
+                print(f"FAILED: {info['topic']} (Retaining in PENDING for manual retry)")
+            else:
+                print(f"SUCCESS: {info['topic']}")
+                db.table("videos").update({"tiktok_status": "SUCCESS"}).eq("id", info["id"]).execute()
                 total_uploaded += 1
-                ping_tiktok_success(topic)
-                
-        except Exception as e:
-            err_msg = f"Upload flow crashed for '{topic}': {e}"
-            print(err_msg)
-            traceback.print_exc()
-            ping_error(err_msg, "TikTok Bulk Poster")
-            continue  # Keep processing remaining items in the queue
-            
-        finally:
-            if os.path.exists(local_filename):
-                os.remove(local_filename)
+                ping_tiktok_success(info["topic"])
+
+        if total_uploaded > 0:
+            ping_queue_completed(total_uploaded)
+
+    except Exception as e:
+        err_msg = f"Bulk upload flow crashed: {e}"
+        print(err_msg)
+        traceback.print_exc()
+        ping_error(err_msg, "TikTok Bulk Poster")
+    
+    finally:
+        # Cleanup
+        for video in videos_to_upload:
+            p = video["path"]
+            if os.path.exists(p):
+                try: os.remove(p)
+                except: pass
                 
     _cleanup()
     print("\nQueue Manager finished processing.")
