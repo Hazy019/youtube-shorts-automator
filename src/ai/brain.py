@@ -165,16 +165,16 @@ def fetch_used_topics():
 _JSON_SCHEMA_EXAMPLE = """{
   "topic": "The developer who hid a working Doom clone inside Minecraft...",
   "search_keyword": "Parkour",
-  "backup_keywords": ["Freerunning", "Urban Rooftop"],
+  "backup_keywords": ["Urban Freerunning", "City Rooftop"],
   "title": "Doom Was Hidden Inside Minecraft This Whole Time",
-  "description": "A Minecraft developer secretly embedded a fully playable version of the original Doom inside the game's code for years before anyone noticed. This is the story of how it was discovered, why it was put there, and what it reveals about the culture of Easter eggs in game development. Gaming Easter eggs have existed since the earliest days of the industry, beginning with Warren Robinett hiding his name in Adventure for the Atari 2600 in 1979 without his employer's knowledge. Since then, developers have used hidden secrets as a form of creative rebellion, a way to leave a permanent mark on their work that publishers could not remove. The Minecraft case is particularly fascinating because the game itself is a sandbox with no fixed narrative, making a hidden Doom clone not just a technical achievement but a philosophical statement about what games can contain. Speedrunners and data miners discovered the secret while analyzing unused memory allocations in the Java Edition client. The code had been dormant for multiple update cycles, surviving version migrations that should have deleted it. Whoever placed it there clearly wanted it to persist. This video breaks down exactly how it was found, how it works, and why the developer responsible has never officially confirmed or denied it. #gaming #minecraft #doom #gamingfacts #shorts",
-  "tags": ["gaming","minecraft","doom","easter egg","gaming facts","hidden secrets","game development","speedrunning","data mining","gaming history","minecraft secrets","doom 1993","retro gaming","gaming shorts","facts"],
+  "description": "Most people played Minecraft for years without knowing that a secret, fully playable version of Doom was running inside the game's code. This story started as a data mining discovery and evolved into a legend of creative rebellion. Game developers often leave hidden signatures, but embedding an entire engine is a level of craftsmanship nobody expected. Speedrunners found the dormant files while researching unused memory allocations, proving that even after decades, the most popular games on Earth still hold forbidden secrets. This video breaks down how it was found, why it survived multiple updates, and why Mojang has never officially confirmed the legend. It's actually insane how much work went into keeping this hidden. Most people don't know that the original Doom engine is small enough to fit inside a single shader package. Follow for more gaming secrets you weren't supposed to find. #gaming #minecraft #doom #hidden secrets #gaming history #actually crazy #mind blown",
+  "tags": ["gaming","minecraft","doom","easter egg","hidden secrets","game development","speedrunning","data mining","gaming history","minecraft secrets","actually crazy","mind blown","wtf facts","retro gaming","shorts"],
   "segments": [
     {
       "start": 0.0,
       "end": 2.5,
       "text": "HIDDEN DOOM",
-      "voiceover": "Someone hid a fully playable version of Doom inside Minecraft and nobody noticed for years.",
+      "voiceover": "Nobody noticed. For two full years, a complete version of Doom was running inside Minecraft's code.",
       "text_effect": "pop",
       "position": "top",
       "highlight_word": "DOOM"
@@ -183,7 +183,7 @@ _JSON_SCHEMA_EXAMPLE = """{
       "start": 2.5,
       "end": 7.0,
       "text": "STAY WATCHING",
-      "voiceover": "Stay till the end because the reason it survived every update is the strangest part of this whole story.",
+      "voiceover": "Stay till the end — the reason it survived every single update is the strangest part of this whole story.",
       "text_effect": "typewriter",
       "position": "center",
       "highlight_word": "WATCHING"
@@ -192,52 +192,52 @@ _JSON_SCHEMA_EXAMPLE = """{
       "start": 7.0,
       "end": 19.0,
       "text": "SINCE 1979",
-      "voiceover": "Easter eggs in games go back to 1979 when a developer hid his name inside an Atari game without his employer knowing. It was an act of rebellion. A signature they could not remove.",
+      "voiceover": "Easter eggs in games go back to 1979. A developer hid his own name inside an Atari game without his employer knowing. It was rebellion. A signature they couldn't remove.",
       "text_effect": "glitch",
       "position": "center",
       "highlight_word": "1979"
     },
     {
       "start": 19.0,
-      "end": 31.0,
+      "end": 32.0,
       "text": "SURVIVED UPDATES",
-      "voiceover": "The Minecraft code was found by data miners analyzing unused memory. It had survived multiple version migrations that should have deleted it. Someone made sure it stayed.",
+      "voiceover": "Data miners found the Minecraft code while analyzing unused memory. It had survived multiple version migrations that should have deleted it. Someone made sure it stayed — and that's actually insane.",
       "text_effect": "pop",
       "position": "top",
       "highlight_word": "SURVIVED"
     },
     {
-      "start": 31.0,
-      "end": 44.0,
+      "start": 32.0,
+      "end": 47.0,
       "text": "FULLY PLAYABLE",
-      "voiceover": "It was not just a reference or a texture. Researchers extracted and ran it. Complete levels, enemies, weapons. The entire original Doom engine running inside Minecraft's Java client.",
+      "voiceover": "Not a reference. Not a texture. Researchers extracted it and ran it. Complete levels. Enemies. Weapons. The entire original Doom engine, running inside Minecraft's Java client.",
       "text_effect": "glitch",
       "position": "center",
       "highlight_word": "PLAYABLE"
     },
     {
-      "start": 44.0,
-      "end": 57.0,
+      "start": 47.0,
+      "end": 60.0,
       "text": "NEVER CONFIRMED",
-      "voiceover": "Mojang has never officially commented on it. The developer suspected of placing it there has stayed completely silent. No confirmation. No denial. Nothing.",
+      "voiceover": "Mojang has never commented. The developer suspected of placing it there has stayed completely silent. No confirmation. No denial. Nothing.",
       "text_effect": "typewriter",
       "position": "center",
       "highlight_word": "CONFIRMED"
     },
     {
-      "start": 57.0,
-      "end": 70.0,
+      "start": 60.0,
+      "end": 75.0,
       "text": "STILL THERE",
-      "voiceover": "As of the latest version traces of the code remain. Modified but present. Whoever put it there is still maintaining it across updates. Quietly. Deliberately.",
+      "voiceover": "As of the latest version, traces remain. Modified. But present. Whoever put it there is still maintaining it across updates. Quietly. Deliberately.",
       "text_effect": "glitch",
       "position": "top",
       "highlight_word": "THERE"
     },
     {
-      "start": 70.0,
+      "start": 75.0,
       "end": 90.0,
       "text": "FOLLOW NOW",
-      "voiceover": "SMASH LIKE if this broke your brain. Follow for more gaming secrets nobody is supposed to know about.",
+      "voiceover": "Drop a comment if this broke your brain. Follow for more gaming secrets nobody is supposed to know about.",
       "text_effect": "pop",
       "position": "bottom",
       "highlight_word": "FOLLOW"
@@ -267,7 +267,7 @@ CATEGORY: {category.upper()}
 THEME: {theme}
 SFX STYLE: {sfx_style}
 PACING: {pace_guide}
-TARGET: 90-120 second video, 70%+ retention, US-first audience.
+TARGET: 60-75 second video, 70%+ retention, US-first audience.
 
 ANALYTICS FEEDBACK (use to improve choices):
 {analytics_feedback if analytics_feedback else "None yet — apply YouTube Shorts best practices."}
@@ -275,30 +275,45 @@ ANALYTICS FEEDBACK (use to improve choices):
 DO NOT use topics similar to these recently produced ones:
 {forbidden_topics}
 
-STYLE REFERENCE — match this energy and format (do not copy topics):
+STYLE REFERENCE — match this energy (do not copy topics):
 {examples}
 
 RULES — all mandatory:
-R1.  topic MUST frame a 'secret', 'hidden', 'forbidden', or 'unmasked' mystery that creates an immediate curiosity gap. Ends in "...".
+R1.  topic ends in "..." and triggers instant curiosity or disbelief. Frame as a 'secret', 'hidden', 'forbidden', or 'unmasked' mystery.
 R2.  No emojis anywhere in the JSON.
-R3.  All facts must be accurate and verifiable. Do not invent events.
+R3.  All facts must be accurate and verifiable. Never invent events.
 R4.  description: 400+ words. Hook sentence first. 3+ hashtags at end.
-R5.  tags: exactly 15 lowercase strings. No # symbol.
-R6.  segments: 8 to 12 total. Each end must equal the next start exactly.
-R7.  Total voiceover duration: 90-120 seconds at ~2.5 words per second.
-R8.  text: 1-3 WORDS ONLY. Never a full sentence. This is the screen caption.
-R9.  voiceover: full natural spoken sentences. Caption and voiceover say different things.
+     IMPORTANT: Rotate description openers — never start with the same phrase twice.
+     Options: question opener / shocking statement / "Most people don't know..."
+R5.  tags: exactly 15 lowercase strings. At least 3 must be colloquial (e.g. "mind blown", "wtf facts").
+R6.  segments: 6 to 10 total. Each end must equal the next start exactly.
+R7.  Total voiceover duration: 60-75 seconds at ~2.5 words per second.
+     HARD LIMIT: The last segment's end value must be 75.0 or less. Never exceed 75.0.
+R8.  text: 1-3 WORDS ONLY. Never a full sentence. This is the on-screen caption.
+R9.  voiceover: full natural spoken sentences. Caption and voiceover say DIFFERENT things.
 R10. text_effect values: "pop" = confident reveal, "glitch" = shocking fact, "typewriter" = tension build.
 R11. position values: "top" or "center" for all body segments. "bottom" for CTA only.
-R12. highlight_word: one exact word from text. Renders WHITE. All others render yellow.
+R12. highlight_word: one exact word from text. Renders WHITE. All others render gold.
 R13. Segment 0: end <= 3.0s | effect=pop | position=top | one scroll-stopping hook sentence.
-R14. Segment 1: effect=typewriter | must include "stay till the end" or equivalent phrase.
+     Hook MUST use one of: "Nobody knew", "For years", "Hidden inside", "This should be impossible".
+R14. Segment 1: effect=typewriter | must include "stay till the end" or equivalent.
 R15. Last segment: effect=pop | position=bottom | strong like/follow/comment CTA.
-R16. search_keyword: {keyword_hint}
-R17. Prioritize topic patterns identified in the ANALYTICS FEEDBACK section (e.g. emphasize 'Secret' hooks).
+     CTA must NOT be the same every video. Rotate: "Drop a comment", "SMASH LIKE", "Tell me below".
+R16. ANTI-AI-FLAG RULES for voiceover:
+     - Use contractions: "it's", "they've", "you'd"
+     - Include sentence fragments for punch: "Nobody noticed. For two decades."
+     - Vary sentence length: mix 3-word punches with 25-word explanations
+     - Include one colloquial phrase: "and that's actually insane", "nobody talks about this"
+     - Never start two consecutive sentences with the same word
+R17. search_keyword: {keyword_hint}
+R18. backup_keywords: 2 alternative Pexels search terms in case primary fails.
+R19. TOPIC PATTERN — use one of these proven high-retention structures:
+     A) "The [famous thing] that secretly [shocking action]..."
+     B) "Why [assumed truth] is actually [the opposite]..."
+     C) "The [role] who [did something nobody was supposed to know]..."
+     D) "What happened [X seconds/days] before [famous event]..."
 
 Return ONLY the JSON. No preamble, no explanation, no markdown fences.
-
 """
     # Plain string concatenation — no f-string interpolation.
     # JSON curly braces are safe here.
@@ -326,10 +341,10 @@ def generate_full_package(category, local_excludes=None):
     if category == "gaming":
         theme        = "Fascinating video game lore, hidden easter eggs, speedrunning records, mind-blowing mechanics, and developer secrets across all major titles."
         examples     = (
-            "- The forbidden developer message encoded inside the original Doom soundtrack...\n"
-            "- The secret developer room in Minecraft that Mojang refuses to acknowledge...\n"
-            "- Why the developers of GTA V hid an alien unmasked under the ice...\n"
-            "- The hidden biological secret making Minecraft Endermen hate eye contact...\n"
+            "- The forbidden developer message secretly encoded inside Doom...\\n"
+            "- The hidden developer room in Minecraft they never told you about...\\n"
+            "- Why developers unmasked a hidden alien under the ice in GTA V...\\n"
+            "- The hidden biological secret making Minecraft Endermen hate eye contact...\\n"
             "- The impossible Super Mario 64 glitch that took 20 years to solve..."
         )
         keyword_hint = 'Return ONLY the string "Parkour". Gaming b-roll always uses parkour footage.'
@@ -338,16 +353,16 @@ def generate_full_package(category, local_excludes=None):
     else:
         theme        = "Mind-blowing science, untold history, psychology tricks, and counterintuitive facts."
         examples     = (
-            "- The hidden biological secret making sleep deprivation feel like being drunk...\n"
-            "- The forgotten historical mystery of why the Mona Lisa has no eyebrows...\n"
-            "- The secret psychology unmasked: why lottery winners lose happiness...\n"
-            "- The forbidden knowledge of how ancient Romans built concrete stronger than steel...\n"
+            "- The hidden biological secret making sleep deprivation feel like being drunk...\\n"
+            "- The forgotten historical mystery of why the Mona Lisa has no eyebrows...\\n"
+            "- The secret psychology unmasked: why lottery winners lose happiness...\\n"
+            "- The forbidden knowledge of how ancient Romans built concrete stronger than steel...\\n"
             "- The hidden anomaly: why your brain cannot tell the difference between physical and emotional pain..."
         )
         keyword_hint = (
-            "A SPECIFIC 2-word Pexels video search term that visually matches the topic.\n"
-            "Space/astronomy -> 'Space Nebula'. Ocean -> 'Deep Ocean'. Brain -> 'Human Brain'.\n"
-            "History -> 'Ancient Rome'. Biology -> 'Cell Biology'. Abstract topic -> 'Parkour'.\n"
+            "A SPECIFIC 2-word Pexels video search term that visually matches the topic.\\n"
+            "Space/astronomy -> 'Space Nebula'. Ocean -> 'Deep Ocean'. Brain -> 'Human Brain'.\\n"
+            "History -> 'Ancient Rome'. Biology -> 'Cell Biology'. Abstract topic -> 'Parkour'.\\n"
             "Return ONLY the 2-word keyword. Also provide 2 backup_keywords."
         )
         sfx_style    = "cinematic, atmospheric — riser and whoosh effects for mystery"
