@@ -20,17 +20,21 @@ PING_ID      = os.getenv("DISCORD_PING_USER_ID", "898947674089349180")
 def redact_secrets(text):
     """
     Scrubs sensitive patterns from tracebacks or strings before sending to Discord.
-    Targets API keys, session IDs, and known secret environments.
+    Targets API keys, session IDs, tokens, and known secret environments.
     """
     if not text:
         return text
     
     patterns = [
-        r"sk-[a-zA-Z0-9_\-]{20,}",           # OpenAI / general sk-
-        r"AIza[a-zA-Z0-9_\-]{30,}",          # Google AI / Gemini
-        r"AKIA[a-zA-Z0-9]{16,}",             # AWS Key ID
-        r"SG\.[a-zA-Z0-9_\-]{20,}",          # SendGrid / similar
-        r"https://discord\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_\-]+", # Webhooks
+        r"sk-[a-zA-Z0-9_\-]{20,}",                            # OpenAI / general sk-
+        r"AIza[a-zA-Z0-9_\-]{30,}",                           # Google AI / Gemini
+        r"AKIA[a-zA-Z0-9]{16,}",                              # AWS Key ID
+        r"SG\.[a-zA-Z0-9_\-]{20,}",                           # SendGrid / similar
+        r"EAA[a-zA-Z0-9]{50,}",                               # Meta / Facebook Graph Access Tokens
+        r"eyJ[a-zA-Z0-9_\-]+\.eyJ[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+", # JWT / Supabase service_role keys
+        r"sb_secret_[a-zA-Z0-9_\-]+",                         # Supabase secret tokens
+        r"sb_publishable_[a-zA-Z0-9_\-]+",                    # Supabase publishable tokens
+        r"https://discord\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_\-]+", # Webhook URLs
     ]
     
     for p in patterns:

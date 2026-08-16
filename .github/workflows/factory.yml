@@ -106,9 +106,9 @@ jobs:
       - name: Verify APIs (Pre-flight)
         run: python tools/verify_apis.py
 
-      # Meta Token Pre-flight — fail fast if PAGE_ACCESS_TOKEN is expired/stale (Disabled due to Meta account suspension)
-      # - name: Verify Meta Token (Pre-flight)
-      #   run: python tools/verify_meta_token.py
+      # Meta Token Pre-flight — fail fast if PAGE_ACCESS_TOKEN is expired/stale
+      - name: Verify Meta Token (Pre-flight)
+        run: python tools/verify_meta_token.py
 
       # Database Sanitation
       - name: Database Maintenance

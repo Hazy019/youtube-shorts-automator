@@ -19,6 +19,9 @@ def test_redaction():
     gemini_key = "AIzaSyD-7Xj2_mock_key_1234567890abcdefgh"
     aws_key = "AKIA1234567890ABCDEF"
     openai_key = "sk-antigravity-mock-secret-key-donotleakthisone"
+    meta_token = "EAAWWhhRW5n8BSAzsZC8BUR0wPVYLxybbs7RtYecNul6oUNvH123456789abcdefghijklmnopqrstuvwxyz"
+    supabase_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UifQ.mock_signature_12345"
+    supabase_secret = "sb_secret_9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a"
     webhook = "https://discord.com/api/webhooks/123456789/mock-token-abc-123"
     
     raw_traceback = f"""
@@ -26,6 +29,9 @@ def test_redaction():
     API_KEY = '{gemini_key}'
     CLIENT = Client(key='{openai_key}')
     AWS_ID = '{aws_key}'
+    META_TOKEN = '{meta_token}'
+    SUPABASE_KEY = '{supabase_jwt}'
+    SUPABASE_PAT = '{supabase_secret}'
     CALLBACK = '{webhook}'
     Something went wrong!
     """
@@ -39,8 +45,11 @@ def test_redaction():
     print(redacted)
     
     # Assertions
-    if gemini_key in redacted or aws_key in redacted or openai_key in redacted or webhook in redacted:
-        print("\n❌ FAIL: Secrets were NOT fully redacted!")
+    sensitive_items = [gemini_key, aws_key, openai_key, meta_token, supabase_jwt, supabase_secret, webhook]
+    leaked = [s for s in sensitive_items if s in redacted]
+    
+    if leaked:
+        print(f"\n❌ FAIL: {len(leaked)} secrets were NOT fully redacted: {leaked}")
     else:
         print("\n✅ PASS: All secrets were replaced with [REDACTED_SECRET].")
 

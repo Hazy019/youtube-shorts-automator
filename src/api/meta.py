@@ -149,6 +149,10 @@ class MetaAPI:
         Uploads a Reel to Instagram Business Account.
         Requires a public video_url (S3).
         """
+        if not self.ig_id:
+            print("  ℹ️  Instagram upload skipped: META_INSTAGRAM_ID is not configured.")
+            return None
+
         print(f"🚀 Starting Instagram Reel upload: {caption[:30]}...")
         
         # Step 1: Create Container

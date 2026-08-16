@@ -217,16 +217,40 @@ def cleanup_s3_assets(keys):
 def produce_video(category, local_excludes=None, token_name='token_youtube.json'):
     print(f"\n--- STARTING PRODUCTION FOR CATEGORY: {category.upper()} (Token: {token_name}) ---")
     local_recovery_file = f"temp_recovery_{category}.json"
+    temp_keys = []
 
     try:
         import json
-        # ── PRO MOVE: SELF-HEALING RECOVERY ──────────────────────────────────
+        # ── PRO MOVE: SELF-HEALING RECOVERY WITH POISON PILL PROTECTION ──────
         # Check local failsafe first to avoid burning Gemini tokens on DB failures
         if os.path.exists(local_recovery_file):
             print(f"♻️  LOCAL RECOVERY: Resuming interrupted job from {local_recovery_file}!")
-            with open(local_recovery_file, 'r', encoding='utf-8') as f:
-                full_package = json.load(f)
+            try:
+                with open(local_recovery_file, 'r', encoding='utf-8') as f:
+                    full_package = json.load(f)
+                
+                # Increment and check recovery attempts to prevent infinite crash loops
+                attempts = full_package.get("_recovery_attempts", 0) + 1
+                full_package["_recovery_attempts"] = attempts
+                
+                if attempts > 3:
+                    print(f"⚠️  POISON PILL DETECTED: {local_recovery_file} failed {attempts} times. Archiving and generating fresh topic.")
+                    archive_name = f"failed_recovery_{category}_{int(time.time())}.json"
+                    os.rename(local_recovery_file, archive_name)
+                    ping_error(f"Archived poison recovery file after 3 failed attempts for {category}: {full_package.get('topic')}", "Self-Healing Recovery")
+                    full_package = None
+                else:
+                    with open(local_recovery_file, 'w', encoding='utf-8') as f:
+                        json.dump(full_package, f)
+            except Exception as e:
+                print(f"  Warning: Corrupted local recovery file: {e}. Removing.")
+                if os.path.exists(local_recovery_file):
+                    os.remove(local_recovery_file)
+                full_package = None
         else:
+            full_package = None
+
+        if not full_package:
             # Check if we have a 'stuck' video in the database for this channel.
             recovery_record = find_recovery_record(category)
             if recovery_record:
@@ -256,51 +280,62 @@ def produce_video(category, local_excludes=None, token_name='token_youtube.json'
         ping_error(msg, "Gemini Factory", traceback_str=tb)
         return None, None, False
 
-    full_audio_script = " ".join([s['voiceover'] for s in viral_package['segments']])
+    try:
+        full_audio_script = " ".join([s['voiceover'] for s in viral_package['segments']])
 
-    audio_url, duration, word_timestamps, voice_error = generate_voiceover(full_audio_script, category=category)
-    if not audio_url:
-        print("\nFACTORY HALTED: Voiceover generation failed.")
-        ping_error(str(voice_error), "ElevenLabs")
-        return None, None, False
+        audio_url, duration, word_timestamps, voice_error = generate_voiceover(full_audio_script, category=category)
+        if not audio_url:
+            print("\nFACTORY HALTED: Voiceover generation failed.")
+            ping_error(str(voice_error), "Voiceover Engine")
+            return None, None, False
+        temp_keys.append(extract_s3_key(audio_url))
 
-    video_urls = get_background_videos(
-        topic,
-        search_keyword,
-        backup_keywords=viral_package.get('backup_keywords'),
-        num_clips=10,
-        max_duration=duration
-    )
-    sfx_urls = get_sfx_urls(num_sfx=max(7, len(viral_package['segments'])))
+        video_urls = get_background_videos(
+            topic,
+            search_keyword,
+            backup_keywords=viral_package.get('backup_keywords'),
+            num_clips=10,
+            max_duration=duration
+        )
+        for v in video_urls: temp_keys.append(extract_s3_key(v))
 
-    bgm_url = get_bgm_url(category=category)
+        sfx_urls = get_sfx_urls(num_sfx=max(7, len(viral_package['segments'])))
+        for s in sfx_urls: temp_keys.append(extract_s3_key(s))
 
-    # Prevent AWS Lambda waste if local Google Drive API times out (WinError 10060)
-    if not video_urls or not sfx_urls or not bgm_url:
-        err = f"FACTORY HALTED: Local Media Fetch Failed. Missing assets. Videos: {len(video_urls)}, SFX: {len(sfx_urls)}, BGM: {'Yes' if bgm_url else 'No'}."
-        print(f"\n{err}")
-        ping_error(err, "Local Google API")
-        return None, None, False
+        bgm_url = get_bgm_url(category=category)
+        temp_keys.append(extract_s3_key(bgm_url))
 
-    # SMART CACHE HASHING: Ensures Remotion safely resumes identical renders
-    # without glitched/stale assets if the script changes.
-    import hashlib
-    script_hash_input = viral_package['topic'] + full_audio_script
-    render_seed = int(hashlib.md5(script_hash_input.encode('utf-8')).hexdigest()[:8], 16)
-    ping_render_start(viral_package['title'], category=category)
-    final_video_url, render_error = make_cloud_video(
-        audio_url,
-        video_urls,
-        sfx_urls,
-        bgm_url,
-        viral_package['segments'],
-        min(duration, 50.0), # Hard-cap at 50.0s for stability & retention
-        category=category,
-        render_seed=render_seed,
-        word_timestamps=word_timestamps
-    )
+        # Prevent AWS Lambda waste if local Google Drive API times out (WinError 10060)
+        if not video_urls or not sfx_urls or not bgm_url:
+            err = f"FACTORY HALTED: Local Media Fetch Failed. Missing assets. Videos: {len(video_urls)}, SFX: {len(sfx_urls)}, BGM: {'Yes' if bgm_url else 'No'}."
+            print(f"\n{err}")
+            ping_error(err, "Local Google API")
+            return None, None, False
 
-    if final_video_url:
+        # SMART CACHE HASHING: Ensures Remotion safely resumes identical renders
+        # without glitched/stale assets if the script changes.
+        import hashlib
+        script_hash_input = viral_package['topic'] + full_audio_script
+        render_seed = int(hashlib.md5(script_hash_input.encode('utf-8')).hexdigest()[:8], 16)
+        ping_render_start(viral_package['title'], category=category)
+        final_video_url, render_error = make_cloud_video(
+            audio_url,
+            video_urls,
+            sfx_urls,
+            bgm_url,
+            viral_package['segments'],
+            min(duration, 50.0), # Hard-cap at 50.0s for stability & retention
+            category=category,
+            render_seed=render_seed,
+            word_timestamps=word_timestamps
+        )
+
+        if not final_video_url:
+            safe_render_err = str(render_error or "Remotion render returned None")[:1200]
+            print(f"\nRender failed: {safe_render_err}. Check AWS CloudWatch logs.")
+            ping_error(safe_render_err, "AWS Lambda")
+            return None, None, False
+
         print(f"\nSUCCESS! RENDER COMPLETE:\n{final_video_url}")
 
         if not validate_render_url(final_video_url):
@@ -357,6 +392,7 @@ def produce_video(category, local_excludes=None, token_name='token_youtube.json'
                 print(f"Supabase updated — youtube_id: {video_id} | channel: {update_payload['channel']}")
             except Exception as e:
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
+                ping_error(f"Failed to save youtube_id to Supabase: {e}", "Supabase State")
 
         # [STEP 2/2] TikTok queuing
         tiktok_status = "QUEUED"
@@ -369,8 +405,8 @@ def produce_video(category, local_excludes=None, token_name='token_youtube.json'
 
             tiktok_payload = {
                 "tiktok_status":    "PENDING",
-                "facebook_status":  "SKIPPED", # Meta disabled
-                "instagram_status": "SKIPPED", # Meta disabled
+                "facebook_status":  "PENDING",
+                "instagram_status": "SKIPPED",
                 "s3_video_url":     final_video_url,
                 "tiktok_description": tiktok_description
             }
@@ -394,86 +430,84 @@ def produce_video(category, local_excludes=None, token_name='token_youtube.json'
             print("Supabase updated with TikTok metadata.")
         except Exception as e:
             print(f"Warning: Failed to queue for TikTok: {e}")
+            ping_error(f"Failed to queue video in Supabase: {e}", "Supabase State")
             tiktok_status = "FAILED"
         
-        # [STEP 3/3] Meta (Facebook & Instagram) Direct Posting (Disabled due to Meta account suspension)
+        # [STEP 3/3] Meta (Facebook & Instagram) Direct Posting
         fb_status = "SKIPPED"
         ig_status = "SKIPPED"
         
-        # try:
-        #     print("\n[STEP 3/3] Initiating Meta Direct Posting...")
-        #     meta = MetaAPI()
-        #     tags = viral_package.get('tags')
-        #     hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
-        #     meta_description = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
-        # 
-        #     # Facebook
-        #     try:
-        #         fb_id = meta.upload_facebook_reel(final_video_url, meta_description)
-        #         if fb_id:
-        #             fb_status = "SUCCESS"
-        #             with_supabase_retry(supabase.table("videos").update({"facebook_status": "SUCCESS"}).eq("topic", full_package['topic']))
-        #         else:
-        #             fb_status = "FAILED"
-        #             with_supabase_retry(supabase.table("videos").update({"facebook_status": "FAILED"}).eq("topic", full_package['topic']))
-        #     except Exception as e:
-        #         print(f"  ⚠ Facebook Direct Upload Failed: {e}")
-        #         fb_status = "FAILED"
-        # 
-        #     # Instagram
-        #     try:
-        #         ig_id = meta.upload_instagram_reel(final_video_url, meta_description)
-        #         if ig_id:
-        #             ig_status = "SUCCESS"
-        #             with_supabase_retry(supabase.table("videos").update({"instagram_status": "SUCCESS"}).eq("topic", full_package['topic']))
-        #         else:
-        #             ig_status = "FAILED"
-        #             with_supabase_retry(supabase.table("videos").update({"instagram_status": "FAILED"}).eq("topic", full_package['topic']))
-        #     except Exception as e:
-        #         print(f"  ⚠ Instagram Direct Upload Failed: {e}")
-        #         ig_status = "FAILED"
-        # 
-        # except Exception as e:
-        #     print(f"  ⚠ Meta API Initialization Failed: {e}")
-        #     fb_status = "FAILED"
-        #     ig_status = "FAILED"
+        try:
+            print("\n[STEP 3/3] Initiating Meta Direct Posting...")
+            meta = MetaAPI()
+            tags = viral_package.get('tags')
+            hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
+            meta_description = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
+
+            # Facebook
+            if meta.page_id and meta.access_token:
+                try:
+                    fb_id = meta.upload_facebook_reel(final_video_url, meta_description)
+                    if fb_id:
+                        fb_status = "SUCCESS"
+                        with_supabase_retry(supabase.table("videos").update({"facebook_status": "SUCCESS"}).eq("topic", full_package['topic']))
+                    else:
+                        fb_status = "FAILED"
+                        with_supabase_retry(supabase.table("videos").update({"facebook_status": "FAILED"}).eq("topic", full_package['topic']))
+                except Exception as e:
+                    print(f"  ⚠ Facebook Direct Upload Failed: {e}")
+                    fb_status = "FAILED"
+            else:
+                print("  ℹ️ Facebook upload skipped: META_PAGE_ID or META_PAGE_ACCESS_TOKEN missing.")
+
+            # Instagram (if configured)
+            if meta.ig_id:
+                try:
+                    ig_id = meta.upload_instagram_reel(final_video_url, meta_description)
+                    if ig_id:
+                        ig_status = "SUCCESS"
+                        with_supabase_retry(supabase.table("videos").update({"instagram_status": "SUCCESS"}).eq("topic", full_package['topic']))
+                    else:
+                        ig_status = "FAILED"
+                        with_supabase_retry(supabase.table("videos").update({"instagram_status": "FAILED"}).eq("topic", full_package['topic']))
+                except Exception as e:
+                    print(f"  ⚠ Instagram Direct Upload Failed: {e}")
+                    ig_status = "FAILED"
+            else:
+                ig_status = "SKIPPED"
+
+        except Exception as e:
+            print(f"  ⚠ Meta API Initialization Failed: {e}")
+            fb_status = "FAILED"
+            ig_status = "FAILED"
 
         ping_creator(youtube_link or "Upload Failed", tiktok_status, fb_status, ig_status, viral_package['title'])
 
-        # --- S3 ASSET CLEANUP (TASK 2) ---------------------------------------
-        # We collect all temporary input keys. We do NOT delete final_video_url 
-        # because the TikTok uploader might still need to fetch it from S3.
-        temp_keys = []
-        temp_keys.append(extract_s3_key(audio_url))
-        temp_keys.append(extract_s3_key(bgm_url))
-        for v in video_urls: temp_keys.append(extract_s3_key(v))
-        for s in sfx_urls:   temp_keys.append(extract_s3_key(s))
-        
-        cleanup_s3_assets(temp_keys)
-        # ---------------------------------------------------------------------
-
         if os.path.exists(local_filename):
-            os.remove(local_filename)
+            try:
+                os.remove(local_filename)
+            except Exception:
+                pass
+
         # Only delete the recovery file if the YouTube upload actually succeeded.
-        # If youtube_link is None, keep it so the next run can resume from it.
         if youtube_link and os.path.exists(local_recovery_file):
-            os.remove(local_recovery_file)
+            try:
+                os.remove(local_recovery_file)
+            except Exception:
+                pass
         elif not youtube_link and os.path.exists(local_recovery_file):
             print(f"  ⚠ YouTube upload failed — keeping {local_recovery_file} for next-run recovery.")
+        
         print(f"Local temp files deleted. {category.upper()} Syndication Cycle Complete!")
         
         title = viral_package['title']
         was_queued = (tiktok_status == "QUEUED")
         return topic, title, was_queued
-    else:
-        # render_error may be a raw Python list from the Remotion SDK (its 'errors' field).
-        # str(list) can produce 10,000+ characters — Discord rejects messages >2000 chars
-        # with a silent HTTP 400, which is swallowed by _post()'s exception handler.
-        # Always coerce to a capped string before pinging.
-        safe_render_err = str(render_error or "Remotion render returned None")[:1200]
-        print(f"\nRender failed: {safe_render_err}. Check AWS CloudWatch logs.")
-        ping_error(safe_render_err, "AWS Lambda")
-        return None, None, False
+
+    finally:
+        # GUARANTEED S3 ASSET CLEANUP (Runs on success OR error)
+        # Purge temporary background, SFX, and voice assets from S3.
+        cleanup_s3_assets(temp_keys)
 
 def start_factory():
     print("HAZY MULTI-CHANNEL FACTORY STARTING (PARALLEL v14)...\n" + "="*40)

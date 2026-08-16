@@ -1,6 +1,12 @@
 import os
+import sys
 import requests
 from dotenv import load_dotenv
+
+# Force UTF-8 output for emojis on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
 
 load_dotenv()
 

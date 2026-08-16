@@ -129,14 +129,17 @@ def _do_local_render(input_props, total_frames, output_path="temp_render_local.m
     import sys
 
     print("\n  ⚡ [LOCAL RENDER ENGINE] Rendering locally via Remotion CLI (Zero AWS Lambda Cost)...", flush=True)
+    temp_props_file = os.path.abspath(f"hazy-remotion-cloud/temp_props_{int(time.time())}.json")
     try:
-        props_str = json.dumps(input_props)
+        with open(temp_props_file, "w", encoding="utf-8") as pf:
+            json.dump(input_props, pf)
+
         out_file = os.path.abspath(output_path)
         cmd = [
             "npx", "remotion", "render",
             "src/index.ts", "MyComp",
             out_file,
-            f"--props={props_str}",
+            f"--props={temp_props_file}",
             f"--frames=0-{total_frames-1}",
             "--overwrite"
         ]
@@ -157,6 +160,12 @@ def _do_local_render(input_props, total_frames, output_path="temp_render_local.m
             return None, err
     except Exception as e:
         return None, f"Local render exception: {e}"
+    finally:
+        if os.path.exists(temp_props_file):
+            try:
+                os.remove(temp_props_file)
+            except Exception:
+                pass
 
 
 def make_cloud_video(

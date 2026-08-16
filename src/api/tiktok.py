@@ -8,7 +8,7 @@ JSON_PATH = "tiktok_cookies.json"
 _temp_files = []
 
 
-def _json_to_netscape(json_path: str, netscape_path: str):
+def _json_to_netscape(json_path: str, netscape_path: str) -> bool:
     """Convert Playwright-format JSON cookies → Netscape HTTP format."""
     if not os.path.exists(json_path):
         print(f"Warning: Cookie file {json_path} does not exist.")
@@ -45,6 +45,68 @@ def _json_to_netscape(json_path: str, netscape_path: str):
     return True
 
 
+def _netscape_to_json(netscape_path: str, json_path: str = None) -> list:
+    """Convert Netscape HTTP format cookies → Playwright JSON cookies list and optionally saves to file."""
+    if not os.path.exists(netscape_path) or os.path.getsize(netscape_path) == 0:
+        return []
+
+    cookies = []
+    with open(netscape_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 7:
+                domain, flag, path, secure, expires, name, value = parts[:7]
+                try:
+                    exp_val = float(expires)
+                    if exp_val <= 0:
+                        exp_val = -1
+                except (ValueError, TypeError):
+                    exp_val = -1
+
+                cookie_dict = {
+                    "name": name,
+                    "value": value,
+                    "domain": domain,
+                    "path": path or "/",
+                    "secure": secure.upper() == "TRUE",
+                }
+                if exp_val > 0:
+                    cookie_dict["expires"] = exp_val
+                cookies.append(cookie_dict)
+
+    if json_path and cookies:
+        try:
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(cookies, f, indent=2)
+            print(f"Converted Netscape -> JSON: {json_path}")
+        except Exception as e:
+            print(f"Warning: Failed to write {json_path}: {e}")
+
+    return cookies
+
+
+def get_playwright_cookies() -> list:
+    """Returns a list of cookie dicts formatted for Playwright context.add_cookies()."""
+    txt_path = _prepare_cookies()
+    if not txt_path or not os.path.exists(txt_path):
+        return []
+
+    # If JSON path exists and is populated, load it; otherwise convert from Netscape
+    if os.path.exists(JSON_PATH) and os.path.getsize(JSON_PATH) > 0:
+        try:
+            with open(JSON_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+        except Exception:
+            pass
+
+    return _netscape_to_json(txt_path, JSON_PATH)
+
+
 def _prepare_cookies() -> str | None:
     """
     Resolves cookie file in priority order:
@@ -53,6 +115,7 @@ def _prepare_cookies() -> str | None:
       3. Local tiktok_cookies.txt file
       4. Local tiktok_cookies.json file (converted)
     Returns path to Netscape file, or None if no cookies found.
+    Also ensures both .txt and .json formats are synchronized.
     """
     # 0. Resolve potential paths
     possible_roots = list(dict.fromkeys([
@@ -67,6 +130,8 @@ def _prepare_cookies() -> str | None:
             f.write(txt_env)
         print("TikTok cookies written from TIKTOK_COOKIES_TXT secret.")
         _temp_files.append(NETSCAPE_PATH)
+        _netscape_to_json(NETSCAPE_PATH, JSON_PATH)
+        _temp_files.append(JSON_PATH)
         return NETSCAPE_PATH
 
     # 2. JSON from env secret → convert
@@ -86,19 +151,21 @@ def _prepare_cookies() -> str | None:
     # 3. Local .txt
     for root in possible_roots:
         txt_path = os.path.join(root, "tiktok_cookies.txt")
-        if os.path.exists(txt_path):
+        if os.path.exists(txt_path) and os.path.getsize(txt_path) > 0:
             if os.path.abspath(txt_path) != os.path.abspath(NETSCAPE_PATH):
                 import shutil
                 shutil.copy(txt_path, NETSCAPE_PATH)
                 print(f"Using local cookies from: {txt_path}")
             else:
                 print(f"Using local cookies: {NETSCAPE_PATH}")
+            # Ensure JSON sync
+            _netscape_to_json(NETSCAPE_PATH, JSON_PATH)
             return NETSCAPE_PATH
 
     # 4. Local .json → convert
     for root in possible_roots:
         json_path = os.path.join(root, JSON_PATH)
-        if os.path.exists(json_path):
+        if os.path.exists(json_path) and os.path.getsize(json_path) > 0:
             print(f"Found local {json_path}, converting...")
             if _json_to_netscape(json_path, NETSCAPE_PATH):
                 return NETSCAPE_PATH

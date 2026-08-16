@@ -59,13 +59,8 @@ def check_token_present() -> str:
 def check_page_and_ig_ids():
     page_id = os.getenv("META_PAGE_ID", "").strip()
     ig_id   = os.getenv("META_INSTAGRAM_ID", "").strip()
-    missing = []
     if not page_id:
-        missing.append("META_PAGE_ID")
-    if not ig_id:
-        missing.append("META_INSTAGRAM_ID")
-    if missing:
-        fail(f"Missing required env vars: {', '.join(missing)}")
+        fail("Missing required env var: META_PAGE_ID")
     return page_id, ig_id
 
 
@@ -144,7 +139,7 @@ def main():
     # 2. IDs check
     page_id, ig_id = check_page_and_ig_ids()
     print(f"   ✅ PAGE_ID  : {page_id}")
-    print(f"   ✅ IG_ID    : {ig_id}")
+    print(f"   ✅ IG_ID    : {ig_id if ig_id else 'None (Facebook Reels Only)'}")
 
     # 3. Live Graph API check
     me = check_token_via_graph(token)

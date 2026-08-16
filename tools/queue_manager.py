@@ -117,7 +117,7 @@ def cleanup_s3_storage(db: Client):
 
     print(f"\n✓ Successfully cleared {deleted_count} videos from AWS S3.")
 
-def auto_trim_queue(db: Client, keep_limit: int = 3):
+def auto_trim_queue(db: Client, keep_limit: int = 10):
     print(f"\nACTION: Auto-trimming TikTok queue to keep only the newest {keep_limit} videos...")
     
     resp = db.table("videos")\
@@ -126,7 +126,7 @@ def auto_trim_queue(db: Client, keep_limit: int = 3):
         .order("id", desc=True)\
         .execute()
         
-    pending_videos = resp.data
+    pending_videos = resp.data or []
     if len(pending_videos) <= keep_limit:
         print(f"Queue is healthy ({len(pending_videos)} pending). No trimming needed.")
         return
@@ -134,7 +134,7 @@ def auto_trim_queue(db: Client, keep_limit: int = 3):
     doomed_videos = pending_videos[keep_limit:]
     doomed_ids = [v['id'] for v in doomed_videos]
     
-    print(f"Found {len(pending_videos)} pending videos. Keeping {keep_limit}, skipping {len(doomed_videos)}.")
+    print(f"Found {len(pending_videos)} pending videos. Keeping {keep_limit}, marking {len(doomed_videos)} oldest as SKIPPED_LIMIT.")
     
     try:
         db.table("videos")\
@@ -145,18 +145,16 @@ def auto_trim_queue(db: Client, keep_limit: int = 3):
     except Exception as e:
         print(f"❌ Failed to bulk update TikTok videos: {e}")
 
-def auto_trim_meta_queue(db: Client, keep_limit: int = 4):
+def auto_trim_meta_queue(db: Client, keep_limit: int = 10):
     print(f"\nACTION: Auto-trimming Meta queue to keep only the newest {keep_limit} videos...")
     
-    # Since PostgREST Python client 'or_' filter syntax can be tricky, 
-    # we fetch all records that are not SUCCESS or SKIPPED_LIMIT or ABANDONED
     resp = db.table("videos")\
         .select("id, topic, facebook_status, instagram_status")\
         .order("id", desc=True)\
         .execute()
         
     pending_videos = []
-    for r in resp.data:
+    for r in (resp.data or []):
         fb = r.get("facebook_status")
         ig = r.get("instagram_status")
         if fb in ["PENDING", "FAILED", "INITIALIZED"] or ig in ["PENDING", "FAILED", "INITIALIZED"]:
@@ -168,7 +166,7 @@ def auto_trim_meta_queue(db: Client, keep_limit: int = 4):
         
     doomed_videos = pending_videos[keep_limit:]
     
-    print(f"Found {len(pending_videos)} pending/failed Meta videos. Keeping {keep_limit}, skipping {len(doomed_videos)}.")
+    print(f"Found {len(pending_videos)} pending/failed Meta videos. Keeping {keep_limit}, marking {len(doomed_videos)} oldest as SKIPPED_LIMIT.")
     
     try:
         updated = 0
@@ -194,13 +192,9 @@ def main():
     args = parser.parse_args()
     db = get_db()
     
-    # PRO MOVE: Dynamic Thresholding
-    # If the user didn't provide a threshold, we look at everything except the last 50 IDs.
-    # This keeps the 'clean-ghosts' logic relevant as the database grows.
     before_threshold = args.before
-    if before_threshold == 224: # Default value was hit
+    if before_threshold == 224:
         try:
-            # Get the highest ID
             res = db.table("videos").select("id").order("id", desc=True).limit(1).execute()
             if res.data:
                 latest_id = res.data[0]['id']
@@ -218,14 +212,14 @@ def main():
     elif args.command == "cleanup-s3":
         cleanup_s3_storage(db)
     elif args.command == "auto-trim":
-        auto_trim_queue(db, keep_limit=3)
-        auto_trim_meta_queue(db, keep_limit=4)
+        auto_trim_queue(db, keep_limit=10)
+        auto_trim_meta_queue(db, keep_limit=10)
     elif args.command == "full-maintenance":
         status_report(db)
         handle_youtube_ghosts(db, before_threshold)
-        sync_tiktok_backlog(db, before_threshold)
-        auto_trim_queue(db, keep_limit=3)
-        auto_trim_meta_queue(db, keep_limit=4)
+        # Note: sync_tiktok_backlog is omitted from automatic maintenance to protect pending TikTok queue
+        auto_trim_queue(db, keep_limit=10)
+        auto_trim_meta_queue(db, keep_limit=10)
         cleanup_s3_storage(db)
         print("\nMAINTENANCE COMPLETE.")
         status_report(db)

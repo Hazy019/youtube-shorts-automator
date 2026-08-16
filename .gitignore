@@ -9,9 +9,13 @@ Thumbs.db
 
 # Environments & Credentials
 .env
+.env*
+**/.env*
 .venv
 venv/
 env/
+*.pem
+*.key
 *.json
 !package.json
 !tsconfig.json
@@ -33,10 +37,11 @@ dist/
 build/
 next-env.d.ts
 
-# Production Temp Files & Renders
-temp_*.mp3
-temp_*.mp4
-temp_render_*.mp4
+# Production Temp Files & Recovery Caches
+temp_*
+failed_recovery_*
+broken_recovery_*
+temp_props_*
 *.log
 
 # Local Sandbox / Tests

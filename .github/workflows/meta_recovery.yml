@@ -1,11 +1,10 @@
 name: Daily Meta Recovery
 
-# Disabled due to Meta account suspension
-# on:
-#   schedule:
-#     - cron: '0 14 * * *'   # 10:00 AM ET (14:00 UTC)
-#     - cron: '0 4 * * *'    # 12:00 AM ET (04:00 UTC)
-#   workflow_dispatch:
+on:
+  schedule:
+    - cron: '0 14 * * *'   # 10:00 AM ET (14:00 UTC)
+    - cron: '0 4 * * *'    # 12:00 AM ET (04:00 UTC)
+  workflow_dispatch:
 
 concurrency:
   group: meta-recovery

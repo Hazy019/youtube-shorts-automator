@@ -85,7 +85,7 @@ def perform_meta_recovery():
             full_caption = f"{title}\n\n{description[:1400]}\n\n{hashtags}"[:2200]
 
             needs_fb = fb_status in ["FAILED", "PENDING", "INITIALIZED"]
-            needs_ig = ig_status in ["FAILED", "PENDING", "INITIALIZED"]
+            needs_ig = bool(os.getenv("META_INSTAGRAM_ID", "").strip()) and (ig_status in ["FAILED", "PENDING", "INITIALIZED"])
 
             if not (needs_fb or needs_ig):
                 continue
