@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.api.youtube import upload_video
 from src.utils.discord import ping_creator
+from src.utils.s3_helper import download_s3_or_http_file
 
 load_dotenv()
 
@@ -40,17 +41,11 @@ def recover_failed_upload():
 
     # 3. Download the video from S3
     local_filename = "recovery_video.mp4"
-    try:
-        print(f"Downloading video from S3...")
-        r = requests.get(s3_url, stream=True, timeout=120)
-        r.raise_for_status()
-        with open(local_filename, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-        print("Download complete.")
-    except Exception as e:
-        print(f"Failed to download video: {e}")
+    print(f"Downloading video from S3...")
+    if not download_s3_or_http_file(s3_url, local_filename):
+        print("Failed to download video from S3.")
         return
+    print("Download complete.")
 
     # 4. Upload to YouTube
     # We'll use the tiktok_description as a fallback for the YouTube description

@@ -11,6 +11,7 @@ import boto3
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from src.utils.s3_helper import delete_s3_file_by_url
 
 load_dotenv()
 
@@ -102,18 +103,14 @@ def cleanup_s3_storage(db: Client):
             continue
 
         url = item.get("s3_video_url")
-        # Extract key
-        try:
-            path = urlparse(url).path
-            key = path.lstrip('/')
-            if key:
-                print(f"  Deleting ID {item['id']}: {key}")
-                s3.delete_object(Bucket=bucket, Key=key)
+        if url:
+            print(f"  Deleting ID {item['id']}: {url[:60]}...")
+            if delete_s3_file_by_url(url):
                 # Null out the URL in DB so we don't try to delete it again
                 db.table("videos").update({"s3_video_url": None}).eq("id", item["id"]).execute()
                 deleted_count += 1
-        except Exception as e:
-            print(f"  ⚠ Failed to delete {url}: {e}")
+            else:
+                print(f"  ⚠ Failed to delete {url}")
 
     print(f"\n✓ Successfully cleared {deleted_count} videos from AWS S3.")
 

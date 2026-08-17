@@ -3,6 +3,7 @@ import time
 import requests
 from dotenv import load_dotenv
 from src.utils.discord import ping_error
+from src.utils.s3_helper import download_s3_or_http_file, get_presigned_s3_url
 
 load_dotenv()
 
@@ -54,21 +55,22 @@ class MetaAPI:
             return None
             
         try:
-            # Stream download in chunks — avoids loading 50MB+ into RAM
-            print(f"    Downloading video from S3 for Facebook upload...")
+            print(f"    Downloading/Reading video for Facebook upload...")
             video_data = b""
-            for dl_attempt in range(3):
+            if os.path.exists(video_url):
+                with open(video_url, "rb") as f:
+                    video_data = f.read()
+            else:
+                temp_fb_dl = os.path.abspath(".temp_fb_upload.mp4")
+                if not download_s3_or_http_file(video_url, temp_fb_dl):
+                    print("[FAIL] Failed to download video for Facebook Reel.")
+                    return None
+                with open(temp_fb_dl, "rb") as f:
+                    video_data = f.read()
                 try:
-                    with requests.get(video_url, stream=True, timeout=120) as r:
-                        r.raise_for_status()
-                        for chunk in r.iter_content(chunk_size=8192):
-                            video_data += chunk
-                    break
-                except Exception as e:
-                    print(f"    FB download error (attempt {dl_attempt+1}/3): {e}")
-                    if dl_attempt == 2:
-                        raise e
-                    time.sleep(2 ** dl_attempt)
+                    os.remove(temp_fb_dl)
+                except Exception:
+                    pass
 
             headers = {
                 "Authorization": f"OAuth {self.access_token}",
@@ -121,10 +123,6 @@ class MetaAPI:
             err_msg = err.get("message", "")
             
             # Robust check for video processing state.
-            # Meta can return various phrasings:
-            # - "Your video is still being processed. Please try again later."
-            # - "Your video is still processing."
-            # - Error code 1
             is_processing = (
                 err_code == 1 or
                 err_code == 9007 or
@@ -147,7 +145,7 @@ class MetaAPI:
     def upload_instagram_reel(self, video_url, caption):
         """
         Uploads a Reel to Instagram Business Account.
-        Requires a public video_url (S3).
+        Requires a public video_url (S3 / presigned S3).
         """
         if not self.ig_id:
             print("  ℹ️  Instagram upload skipped: META_INSTAGRAM_ID is not configured.")
@@ -155,11 +153,14 @@ class MetaAPI:
 
         print(f"🚀 Starting Instagram Reel upload: {caption[:30]}...")
         
+        # Ensure URL is accessible to Instagram crawler via presigned URL if on S3
+        public_url = get_presigned_s3_url(video_url)
+        
         # Step 1: Create Container
         container_url = f"{self.base_url}/{self.ig_id}/media"
         container_payload = {
             "media_type": "REELS",
-            "video_url": video_url,
+            "video_url": public_url,
             "caption": caption,
             "access_token": self.access_token
         }

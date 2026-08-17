@@ -26,44 +26,19 @@ def _get_supabase() -> Client | None:
         print(f"Supabase init failed: {e}")
     return None
 
-def download_video(url: str, output_path: str) -> bool:
-    print(f"Downloading from S3: {url[:60]}...")
-    try:
-        r = requests.get(url, stream=True)
-        r.raise_for_status()
-        with open(output_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-        return True
-    except Exception as e:
-        print(f"Failed to download video: {e}")
-        return False
+from src.utils.s3_helper import download_s3_or_http_file, delete_s3_file_by_url
 
-def extract_s3_key(url):
-    """Extract object key from a pre-signed or direct S3 URL."""
-    try:
-        path = urlparse(url).path
-        return path.lstrip('/')
-    except:
-        return None
+def download_video(url: str, output_path: str) -> bool:
+    print(f"Downloading video from: {url[:60]}...")
+    return download_s3_or_http_file(url, output_path)
 
 def delete_s3_video(url: str):
     """Delete the video from AWS S3."""
-    key = extract_s3_key(url)
-    if not key: return
-    
-    bucket = os.getenv("BUCKET_NAME")
-    if not bucket:
-        print("Warning: BUCKET_NAME not set. S3 cleanup skipped.")
-        return
-
-    print(f"  ACTION: Deleting video from S3 bucket: {key}")
-    try:
-        s3 = boto3.client("s3")
-        s3.delete_object(Bucket=bucket, Key=key)
-        print(f"  ✓ S3 Cleanup successful.")
-    except Exception as e:
-        print(f"  ⚠ S3 Cleanup failed: {e}")
+    print(f"  ACTION: Deleting video from S3...")
+    if delete_s3_file_by_url(url):
+        print("  ✓ S3 Cleanup successful.")
+    else:
+        print("  ⚠ S3 Cleanup skipped or failed.")
 
 def drain_tiktok_queue():
     print("="*40)
@@ -75,11 +50,11 @@ def drain_tiktok_queue():
         print("FATAL: Could not connect to Supabase.")
         return
 
-    # Fetch queued items
+    # Fetch queued items (Newest first so fresh renders are uploaded immediately)
     try:
         resp = db.table("videos").select("Topic:topic, id, s3_video_url, tiktok_description")\
                 .eq("tiktok_status", "PENDING")\
-                .order("id", desc=False)\
+                .order("id", desc=True)\
                 .execute()
     except Exception as e:
         print(f"Supabase query failed: {e}")
@@ -106,7 +81,7 @@ def drain_tiktok_queue():
         s3_url = item.get("s3_video_url")
         desc = item.get("tiktok_description")
         
-        print(f"\n--- Processing {i+1}/{len(queue)}: {topic} ---")
+        print(f"\n--- Processing {i+1}/{len(queue)}: {topic} (ID: {video_id}) ---")
         if not s3_url:
             print(f"  [SKIP] No S3 video URL found for this topic. Record may be incomplete.")
             continue
@@ -121,7 +96,11 @@ def drain_tiktok_queue():
         # 1. Download
         print(f"  ACTION: Downloading video from S3...")
         if not download_video(s3_url, local_filename):
-            print(f"  [ERROR] Failed to download video from: {s3_url}")
+            print(f"  [ERROR] Video file does not exist in S3 (lifecycle expired). Marking as EXPIRED_ASSET.")
+            try:
+                db.table("videos").update({"tiktok_status": "EXPIRED_ASSET"}).eq("id", video_id).execute()
+            except Exception as e:
+                print(f"  Failed to update status in Supabase: {e}")
             continue
             
         # 2. Upload

@@ -83,8 +83,11 @@ def check_token_via_graph(token: str) -> dict:
         err = data["error"]
         code = err.get("code")
         msg  = err.get("message", "Unknown error")
-        # Code 190 = token expired/invalid
-        hint = " (Token is EXPIRED or REVOKED)" if code == 190 else ""
+        hint = ""
+        if code == 190:
+            hint = " (Token is EXPIRED or REVOKED - Generate a new Long-Lived Page Token)"
+        elif code == 200:
+            hint = " (Meta App is in DEV MODE or User is NOT in App Roles: Go to developers.facebook.com -> App -> App Roles -> Add your user as Developer/Admin, or switch App Mode to Live)"
         fail(f"Graph API rejected token{hint}: [{code}] {msg}")
 
     return data
