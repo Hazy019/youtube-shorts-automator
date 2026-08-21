@@ -30,7 +30,7 @@ async def capture_cookies():
             print("  [Note] playwright-stealth not found, proceeding with standard stealth.")
 
         print("\nACTION: Navigating to TikTok login...")
-        await page.goto("https://www.tiktok.com/login", wait_until="networkidle")
+        await page.goto("https://www.tiktok.com/login", wait_until="domcontentloaded", timeout=60000)
         
         print("ACTION: Please log in in the browser window.")
         print("Waiting for session... (Polling 180s)")
