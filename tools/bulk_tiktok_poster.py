@@ -13,7 +13,7 @@ from supabase import create_client, Client
 load_dotenv()
 
 # Reverting to library-based imports
-from src.api.tiktok import upload_to_tiktok, _cleanup, _prepare_cookies, _validate_netscape
+from src.api.tiktok import upload_to_tiktok, _cleanup, _prepare_cookies, _validate_netscape, _do_tiktok_upload
 from src.utils.discord import ping_error, ping_tiktok_success, ping_queue_completed
 
 def _get_supabase() -> Client | None:
@@ -107,34 +107,35 @@ def drain_tiktok_queue():
         while True:
             try:
                 import threading
-                from tiktok_uploader.upload import upload_video
-                
-                cookies_path = _prepare_cookies()
-                if not cookies_path or not _validate_netscape(cookies_path):
-                    print("FATAL: Invalid or missing TikTok Cookies. Stop to fix cookies.")
+                from src.api.tiktok import _do_tiktok_upload, _PROFILE_DIR
+
+                has_persistent = os.path.exists(_PROFILE_DIR) and len(os.listdir(_PROFILE_DIR)) > 0
+                cookies_path = _prepare_cookies() if not has_persistent else None
+
+                if not has_persistent and (not cookies_path or not _validate_netscape(cookies_path)):
+                    print("FATAL: No valid TikTok session found. Run 'tools/setup_tiktok_session.py' or provide cookies.")
                     break
-                    
-                # Local manual mode: Headless is False so user can solve captchas
-                is_headless = False
-                print(f"Launching LOCAL browser via threaded-sync mode...")
-                
+
+                if has_persistent:
+                    print(f"Launching LOCAL browser with permanent profile (.tiktok_profile)...")
+                else:
+                    print(f"Launching LOCAL stealth browser with backup cookies...")
+
                 thread_result = None
                 thread_err = None
 
                 def _run_sync_upload():
                     nonlocal thread_result, thread_err
                     try:
-                        thread_result = upload_video(
-                            local_filename,
-                            description=desc,
-                            cookies=cookies_path,
-                            headless=is_headless,
-                        )
+                        # _do_tiktok_upload handles:
+                        #   - asyncio.new_event_loop() isolation (no Playwright async crash)
+                        #   - Chrome/124 UA (not Chrome/58 from library config.toml)
+                        #   - Cookies injected BEFORE navigation
+                        #   - complete_upload_form() called directly (bypasses broken TikTokUploader.page property)
+                        thread_result = _do_tiktok_upload(local_filename, desc, headless=False)
                     except Exception as e:
                         thread_err = e
 
-                # We must run this in a thread because Supabase/Httpx might have 
-                # already started an asyncio loop, which crashes Playwright Sync API
                 upload_thread = threading.Thread(target=_run_sync_upload)
                 upload_thread.start()
                 upload_thread.join()

@@ -290,12 +290,17 @@ def produce_video(category, local_excludes=None, token_name='token_youtube.json'
             return None, None, False
         temp_keys.append(extract_s3_key(audio_url))
 
+        segment_queries = [
+            s.get('visual_query') for s in viral_package.get('segments', []) if s.get('visual_query')
+        ]
+
         video_urls = get_background_videos(
             topic,
             search_keyword,
             backup_keywords=viral_package.get('backup_keywords'),
             num_clips=10,
-            max_duration=duration
+            max_duration=duration,
+            segment_queries=segment_queries
         )
         for v in video_urls: temp_keys.append(extract_s3_key(v))
 
@@ -394,44 +399,32 @@ def produce_video(category, local_excludes=None, token_name='token_youtube.json'
                 print(f"Warning: Failed to save youtube_id to Supabase: {e}")
                 ping_error(f"Failed to save youtube_id to Supabase: {e}", "Supabase State")
 
-        # [STEP 2/2] TikTok queuing
-        tiktok_status = "QUEUED"
-        print("\n[STEP 2/2] Adding video to TikTok retry queue...")
-        
+        # [STEP 2/2] TikTok queuing (DISABLED - TikTok uploads paused)
+        tiktok_status = "DISABLED"
+        # print("\n[STEP 2/2] TikTok queuing is currently paused/disabled.")
+        # try:
+        #     tags = viral_package.get('tags')
+        #     hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
+        #     tiktok_description = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
+        #     tiktok_payload = {
+        #         "tiktok_status":    "DISABLED",
+        #         "facebook_status":  "PENDING",
+        #         "instagram_status": "SKIPPED",
+        #         "s3_video_url":     final_video_url,
+        #         "tiktok_description": tiktok_description
+        #     }
+        #     result = with_supabase_retry(
+        #         supabase.table("videos").update(tiktok_payload).eq("topic", full_package['topic'])
+        #     )
+        # except Exception as e:
+        #     print(f"Warning: Failed to queue for TikTok: {e}")
+
         try:
-            tags = viral_package.get('tags')
-            hashtags = " ".join(f"#{t}" for t in tags) if tags else "#shorts #gaming #facts"
-            tiktok_description = f"{viral_package['title']}\n\n{viral_package['description'][:1400]}\n\n{hashtags}"[:2200]
-
-            tiktok_payload = {
-                "tiktok_status":    "PENDING",
-                "facebook_status":  "PENDING",
-                "instagram_status": "SKIPPED",
-                "s3_video_url":     final_video_url,
-                "tiktok_description": tiktok_description
-            }
-
-            # Try update first (row should exist from brain.py insert)
-            result = with_supabase_retry(
-                supabase.table("videos").update(tiktok_payload).eq("topic", full_package['topic'])
+            with_supabase_retry(
+                supabase.table("videos").update({"tiktok_status": "DISABLED", "s3_video_url": final_video_url}).eq("topic", full_package['topic'])
             )
-
-            # If no rows matched, the brain.py insert was skipped — insert the row now
-            if not result.data:
-                print("  Row not found — inserting new Supabase record.")
-                with_supabase_retry(
-                    supabase.table("videos").insert({
-                        "topic": full_package['topic'],
-                        "title": viral_package['title'],
-                        **tiktok_payload
-                    })
-                )
-
-            print("Supabase updated with TikTok metadata.")
         except Exception as e:
-            print(f"Warning: Failed to queue for TikTok: {e}")
-            ping_error(f"Failed to queue video in Supabase: {e}", "Supabase State")
-            tiktok_status = "FAILED"
+            print(f"  Note: TikTok status update in Supabase skipped/failed (non-fatal): {e}")
         
         # [STEP 3/3] Meta (Facebook & Instagram) Direct Posting
         fb_status = "SKIPPED"

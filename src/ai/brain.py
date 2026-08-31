@@ -151,13 +151,34 @@ def validate_full_package(data):
                 "text_effect", "position", "highlight_word"]
     valid_effects = ("pop", "glitch", "typewriter", "bounce", "glow", "slide")
     
-    # ── Duration & Hook Validation ──────────────────────────────────────────
+    # ── Duration, Role & Hook Validation ──────────────────────────────────────
+    roles = ["hook", "stakes", "build", "payoff", "button"]
     for i, s in enumerate(data["segments"]):
-        if not all(k in s for k in seg_keys):
-            return False, f"Segment {i} missing keys: {list(s.keys())}"
+        # Auto-fill missing non-critical keys
+        if "role" not in s:
+            s["role"] = roles[min(i, len(roles) - 1)]
+        if "visual_query" not in s or not s["visual_query"]:
+            s["visual_query"] = data.get("search_keyword", "digital security server")
+        if "text_effect" not in s or s["text_effect"] not in valid_effects:
+            s["text_effect"] = "pop" if i == 0 else "typewriter"
+        if "position" not in s:
+            s["position"] = "top" if i == 0 else ("bottom" if i == len(data["segments"]) - 1 else "center")
+        if "highlight_word" not in s or not s["highlight_word"]:
+            words = s.get("text", "").split()
+            s["highlight_word"] = words[0] if words else ""
+
+        # Check required fields
+        if not all(k in s for k in ["text", "voiceover"]):
+            return False, f"Segment {i} missing text or voiceover"
         
-        if s.get("text_effect") not in valid_effects:
-            s["text_effect"] = "pop"
+        # Auto-compute start/end if missing
+        if "start" not in s:
+            s["start"] = 0.0 if i == 0 else data["segments"][i-1].get("end", 0.0)
+        if "end" not in s:
+            # Approx 2.2 words per second + 0.5s pause
+            vo_len = len(s.get("voiceover", "").split())
+            duration_est = max(2.5, round(vo_len / 2.2, 1))
+            s["end"] = s["start"] + duration_est
 
         # Force Hook constraints (Segment 0)
         if i == 0 and s.get("end", 99) > 3.5:
@@ -166,7 +187,6 @@ def validate_full_package(data):
                 data["segments"][1]["start"] = max(3.5, data["segments"][1].get("start", 3.5))
 
         # Force Shorts constraint (MAX 59.0s)
-        # If any segment drifts past 59s, we truncate it and all subsequent segments.
         if s.get("start", 0) >= 59.0:
             print(f"  Warning: Truncating segment {i} (starts at {s['start']}s >= 59s)")
             data["segments"] = data["segments"][:i]
@@ -225,53 +245,73 @@ def fetch_used_topics():
 # Fix: _JSON_SCHEMA_EXAMPLE is a plain str constant — never inside
 # an f-string. build_master_prompt() builds the dynamic f-string
 # section, then concatenates the plain example at the end.
-# The JSON can contain any { } and it will never crash Python.
 # ══════════════════════════════════════════════════════════════════
 
 _JSON_SCHEMA_EXAMPLE = """{
-  "topic": "[DYNAMIC_TOPIC_HERE]",
-  "search_keyword": "Cyber Security",
-  "backup_keywords": ["Hacker Code", "Server Room"],
-  "title": "[CATCHY_VIRAL_TITLE]",
-  "description": "A long, SEO-optimized description that starts with a US-centric hook...",
-  "pinned_comment": "[WRITE A SPECIFIC TRIVIA FACT OR HIGH-ENGAGEMENT DISCUSSION QUESTION LINKED EXACTLY TO THIS TOPIC. NEVER USE GENERIC 'WHICH PART SHOCKED YOU?' PHRASES.]",
-  "tags": ["shorts","us-trends","cybersecurity","tech secrets","facts","mind blown","actually crazy","history","explained"],
+  "topic": "The $81M Bank Typo Hack",
+  "category": "us-centric",
+  "hook_style": "number",
+  "search_keyword": "Cyber Security Hacker",
+  "backup_keywords": ["Bank Vault Security", "Server Room Dark"],
+  "title": "A Single Typo Cost Hackers $81 Million",
+  "description": "In 2016, hackers nearly stole $1 billion from a national bank until a single misspelled word triggered an alarm. Here is how the impossible heist was caught.\\n\\n#shorts #cybersecurity #techfacts",
+  "pinned_comment": "Fun fact: The hackers misspelled 'foundation' as 'fandation' on transfer #5. Would you have caught it?",
+  "tags": ["shorts","cybersecurity","heist","tech facts","bank hack","money","history","crazy stories","explained"],
   "segments": [
     {
+      "role": "hook",
       "start": 0.0,
       "end": 2.5,
-      "text": "THE HOOK",
-      "voiceover": "[WRITE A SHOCKING 2-SECOND HOOK SPECIFIC TO THE TOPIC HERE. NEVER REPEAT OR REUSE OLD HOOKS.]",
+      "text": "TYPO HACK",
+      "voiceover": "A one-letter typo stopped an eighty-million-dollar cyber heist.",
+      "visual_query": "bank vault digital security hacker code",
       "text_effect": "pop",
       "position": "top",
-      "highlight_word": "SECRET"
+      "highlight_word": "TYPO"
     },
     {
+      "role": "stakes",
       "start": 2.5,
       "end": 7.0,
-      "text": "STAY WATCHING",
-      "voiceover": "[WRITE A RETENTION LINE HERE CONNECTING THE HOOK TO THE MAIN STORY. DO NOT USE GENERIC PHRASES.]",
+      "text": "BANK BREACH",
+      "voiceover": "In 2016, hackers infiltrated the central bank of Bangladesh.",
+      "visual_query": "server room flashing led lights dark",
       "text_effect": "typewriter",
       "position": "center",
-      "highlight_word": "WATCHING"
+      "highlight_word": "BREACH"
     },
     {
+      "role": "build",
       "start": 7.0,
-      "end": 55.0,
-      "text": "THE EVIDENCE",
-      "voiceover": "[WRITE THE MAIN STORY/FACTS HERE. USE PUNCTUATION FOR BREATHING. BE HIGHLY SPECIFIC.]",
+      "end": 28.0,
+      "text": "FED SERVERS",
+      "voiceover": "They routed dozens of fake payment requests through Federal Reserve servers in New York.",
+      "visual_query": "financial stock ticker digital data",
       "text_effect": "glitch",
       "position": "center",
-      "highlight_word": "EVIDENCE"
+      "highlight_word": "SERVERS"
     },
     {
-      "start": 55.0,
-      "end": 59.0,
-      "text": "FOLLOW NOW",
-      "voiceover": "[WRITE A QUICK OUTRO OR CALL TO ACTION RELEVANT TO THE TOPIC HERE.]",
-      "text_effect": "pop",
+      "role": "payoff",
+      "start": 28.0,
+      "end": 42.0,
+      "text": "MISSPELLED",
+      "voiceover": "Their fifth transfer misspelled foundation as fandation... triggering alarms instantly.",
+      "visual_query": "keyboard typing closeup red error screen",
+      "text_effect": "glow",
+      "position": "center",
+      "highlight_word": "MISSPELLED"
+    },
+    {
+      "role": "button",
+      "start": 42.0,
+      "end": 48.0,
+      "text": "ESCAPED CASH",
+      "voiceover": "How much cash did they escape with before the plug was pulled?",
+      "visual_query": "money stacks counting currency",
+      "text_effect": "bounce",
       "position": "bottom",
-      "highlight_word": "FOLLOW"
+      "highlight_word": "CASH"
     }
   ]
 }"""
@@ -293,15 +333,14 @@ def build_master_prompt(
     with a plain string (JSON schema example). The plain string is never
     inside the f-string, so its curly braces cannot trigger format errors.
     """
-    dynamic_section = f"""You are an expert YouTube Shorts scriptwriter and video producer.
-Your job is to generate ONE complete production package as valid JSON.
+    dynamic_section = f"""You are the head scriptwriter for a high-retention YouTube Shorts channel called Hazy Insight, which produces 30-45 second trivia and news explainer videos.
+Your ONLY job is to write scripts that survive the first 3 seconds and hold attention to the final second. You are graded on watch-through rate, not on information density.
 
 CATEGORY: {category.upper()}
 THEME: {theme}
 SFX STYLE: {sfx_style}
 PACING: {pace_guide}
-TARGET: EXACTLY 45-50 second video for YouTube Shorts + TikTok. 
-AUDIENCE: US-based (use US slang, US cultural references, and American-English).
+AUDIENCE: US-based (use US slang, cultural references, and American-English).
 
 ANALYTICS FEEDBACK:
 {analytics_feedback if analytics_feedback else "No feedback yet — use YouTube Shorts best practices."}
@@ -309,111 +348,65 @@ ANALYTICS FEEDBACK:
 DO NOT repeat these recent topics:
 {forbidden_topics}
 
-DO NOT USE THE "DOOM/MINECRAFT" TOPIC FROM THE EXAMPLE.
+DO NOT USE THE EXAMPLE TOPIC FROM THE SCHEMA.
 
 STYLE REFERENCE (match energy, do not copy topics):
 {examples}
 
 ══════════════════════════════════════════════════════════
-PART 1 — ANTI-HALLUCINATION PROTOCOL (HIGHEST PRIORITY)
+PART 1 — NON-NEGOTIABLE HOOK RULES (FIRST 3 SECONDS)
 ══════════════════════════════════════════════════════════
-This rule overrides everything else. Every single claim must be accurate.
-
-P1. ONLY state facts you are certain are true. Zero invention, zero exaggeration.
-P2. Every number, date, developer name, and game mechanic must be real and verifiable.
-P3. If you are uncertain about a specific detail, OMIT it entirely. Do not guess.
-P4. "Hidden", "secret", and "nobody knew" are only valid if the fact is genuinely obscure.
-    Do not call mainstream knowledge obscure.
-P5. Phonetic spelling for complex terms the AI voice may mispronounce:
-    "May-lay" for Melee, "Zell-duh" for Zelda, "Rok-star" for Rockstar, etc.
-    Include phonetic forms directly in the voiceover text.
-P6. NO "AI SLOP". Do not write generic listicles or surface-level trivia that anyone could guess. Provide deep, specific context that shows real research. Respect the viewer's intelligence.
+H1. The first sentence must be under 8 words.
+H2. The first sentence must be a specific, concrete, surprising CLAIM or NUMBER — never a setup, never a question, never a category label.
+H3. BANNED opening phrases (AUTO-REJECT and rewrite if generated):
+    "Did you know", "Here's why", "Let's talk about", "Today we're looking at",
+    "Have you ever wondered", "This is the story of", "Imagine if", "Wait, actually",
+    "So basically", "You see", "In a world where".
+H4. The hook must create a curiosity gap: state the claim boldly, withhold the full explanation for at least two more sentences.
 
 ══════════════════════════════════════════════════════════
-PART 2 — EDGE-TTS PUNCTUATION RULES (CRITICAL FOR VOICE)
+PART 2 — 5-STAGE NARRATIVE STRUCTURE (MANDATORY IN THIS ORDER)
 ══════════════════════════════════════════════════════════
-The voiceover text is processed by an AI voice engine (Edge-TTS or ElevenLabs).
-Heavy punctuation forces natural breathing and prevents robotic delivery.
-
-V1. Use "..." (ellipsis) for dramatic pauses — 600ms of silence. Use 1-2 per segment.
-V2. Use "," (comma) for natural breath pauses between thoughts.
-V3. Use short sentence fragments for punch: "Nobody noticed. For two years."
-    Edge-TTS handles fragments better than long compound sentences.
-V4. NEVER write a sentence longer than 20 words without a comma or ellipsis inside it.
-V5. Vary sentence length deliberately:
-    GOOD: "Nobody knew. For exactly twenty years... a glitch sat inside the code, waiting."
-    BAD:  "For a period of twenty years nobody discovered that a glitch existed inside the game's code."
-V6. Use contractions always: "it's", "they've", "didn't", "can't", "you'd".
-    Formal grammar sounds robotic. Contractions sound human.
-V7. Include ONE colloquial phrase per video — naturally embedded, not forced:
-    "and honestly, that's insane", "nobody talks about this", "here's the thing",
-    "and get this", "but here's what's wild"
-V8. NEVER start two consecutive sentences with the same word.
-V9. NEVER use these phrases in the hook voiceover — they sound awkward when spoken by a TTS voice:
-    "Wait, actually" — sounds like the narrator changed their mind mid-thought.
-    "So basically" — filler, no drama.
-    "You see" — condescending, kills tension.
-    Any opener that sounds like a correction rather than a confident revelation.
+Every video MUST contain exactly 5 to 6 segments following this structure:
+1. HOOK (role: "hook", 1 sentence, <8 words) — the surprising claim or number.
+2. STAKES (role: "stakes", 1 sentence) — why this claim matters or what's at risk / who it affects.
+3. BUILD (role: "build", 1-2 sentences) — deliver the explanation, escalating specificity, one new fact per sentence, never repeat a fact.
+4. PAYOFF (role: "payoff", 1 sentence) — the twist, resolution, or core revelation.
+5. BUTTON (role: "button", 1 sentence) — a punchy line that either (a) recontextualizes the whole video, or (b) poses a next-level question that makes a comment/rewatch likely. NEVER a generic "let me know what you think" CTA.
 
 ══════════════════════════════════════════════════════════
-PART 4 — THE "ANTI-AI SLOP" PROTOCOL (CONTENT QUALITY)
+PART 3 — VISUAL SYNC REQUIREMENT (FOR EVERY SEGMENT)
 ══════════════════════════════════════════════════════════
-To keep this content looking human and professional, you are FORBIDDEN from using "AI Slop" words.
-
-S1. FORBIDDEN WORDS (Delete these from your vocabulary):
-    Unleash, Delve, Uncover, Secrets, Mysterious, Testament, Shrouded, Landscape, 
-    Embark, Journey, Realm, Tapestry, Vibrant, Elevate, Revolutionize, 
-    At the heart of, In the world of, Look no further.
-
-S2. Use "Spoken English" only. Avoid formal academic structures.
-    Instead of "The discovery revolutionized the field," use "This changed everything."
-    Instead of "It is a testament to his skill," use "It shows just how good he was."
+For EVERY segment, you MUST output a `visual_query` field:
+- A concrete, literal, filmable search term (2-5 words) for stock footage that matches what is being SAID at that exact moment.
+- Bad: "science concept", "technology idea", "money problem".
+- Good: "bank vault digital security hacker code", "scientist pipette lab closeup", "server room flashing led lights dark".
 
 ══════════════════════════════════════════════════════════
-PART 5 — PRODUCTION RULES
+PART 4 — PACING & WORD BUDGET (EDGE-TTS VOICE OPTIMIZATION)
 ══════════════════════════════════════════════════════════
+W1. TOTAL SCRIPT WORD COUNT: 70 to 105 words total across all segments.
+    (Approx 2.2 words/second at natural TTS pace, leaving room for dramatic pauses).
+    Target duration is EXACTLY 35.0 to 45.0 seconds.
+W2. One idea per sentence. No compound sentences stacking two facts.
+W3. Average sentence length: 8-14 words. Short sentences hit harder.
+W4. Use "..." (ellipsis) for dramatic pauses (600ms silence). Use 1-2 per video.
+W5. Use contractions always: "it's", "they've", "didn't", "can't", "you'd".
+W6. NO "AI SLOP" words: Unleash, Delve, Uncover, Secrets, Mysterious, Testament,
+    Shrouded, Landscape, Embark, Journey, Realm, Tapestry, Vibrant, Elevate, Revolutionize.
 
-R1.  topic ends in "..." — triggers curiosity or disbelief.
-R2.  No emojis anywhere in the JSON.
-R3.  description: 400+ words. Conversational opener first, then SEO. 3+ hashtags.
-     ROTATE openers every video — never use the same opener twice.
-R4.  tags: exactly 15 lowercase strings. At least 4 must be colloquial.
-R5.  segments: EXACTLY 5 to 7 total. (Rejection if less than 5).
-R6.  TOTAL WORD COUNT LIMIT: 100 to 115 words total across all segments.
-     Duration calculation: Each ellipsis "..." adds 0.6s of silence. 
-     Your target is EXACTLY 48.0 seconds. Do not exceed 115 words.
-     Match start/end timing exactly. Each segment.end must equal next segment.start.
-R7.  text (on-screen caption): 1-3 WORDS ONLY. Never a full sentence.
-R8.  voiceover and text say DIFFERENT things. Caption = punchline/label. Voiceover = explanation.
-R9.  text_effect: CYCLE text effects across segments! Choose from: "pop" (spring zoom), "glitch" (cyber split), "typewriter" (terminal reveal), "bounce" (vertical drop), "glow" (neon aura), "slide" (whip slide). Vary the effect for each segment!
-R10. position: "top" or "center" for body segments. "bottom" for CTA only.
-R11. highlight_word: one exact word from text. Renders WHITE. Others render gold.
-R12. SEGMENT 0 (Hook):
-     - end <= 3.0s
-     - text_effect = "pop", position = "top"
-     - Voiceover max 15 words with an ellipsis mid-sentence for breath
-     - MUST synthesize a UNIQUE hook based on the topic. NEVER use a generic template.
-     - VARY THE HOOK ARCHETYPE EVERY SINGLE VIDEO (Rotate between these 4 formulas):
-       1. REVERSE LOGIC: "Everyone assumes [X] is safe, but in 2021 a single zero-day..."
-       2. SECRET DISCLOSURE: "A classified document just proved that [X] was..."
-       3. HIGH STAKES LOSS: "A tiny 1-line coding glitch wiped out [X] in seconds..."
-       4. HISTORICAL PARADOX: "In 1998, a man accidentally hacked [X] using..."
-     - Every hook MUST be specific to the video's actual topic. If the topic is about Cybersecurity, the hook MUST mention hacking/servers/zero-day immediately.
-R13. SEGMENT 1 (Tease):
-     - text_effect = "typewriter", position = "center"
-     - Must contain "stay till the end" or equivalent retention phrase
-     - Include ellipsis before the payoff.
-R14. LAST SEGMENT (CTA):
-     - end MUST BE 59.0
-     - text_effect = "pop", position = "bottom"
-     - ROTATE the CTA phrase.
-R15. search_keyword: {keyword_hint}
-R16. backup_keywords: list of 2 alternative Pexels search terms.
-R17. pinned_comment:
-     - MUST provide a unique bonus trivia fact or a specific high-engagement question tailored to the video topic.
-     - FORBIDDEN: Do NOT write generic "Which part shocked you?" or "Comment below".
-     - GOOD: "Fun fact: The $81M heist was caught because the hackers misspelled 'foundation' as 'fandation'! Would you have noticed?"
-R18. TOPIC FORMULA — use one of these proven high-retention structures.
+══════════════════════════════════════════════════════════
+PART 5 — METADATA & VISUAL CAPTION RULES
+══════════════════════════════════════════════════════════
+R1. topic: Short internal topic name ending in "..."
+R2. title: Punchy viral title under 50 characters, leading with the hook's core claim.
+R3. description: 50-80 words max. 2-3 engaging, conversational sentences summarizing the core story + exactly 3 hashtags (#shorts and 2 topic hashtags).
+R4. pinned_comment: Unique bonus trivia fact or high-engagement discussion question tailored to the topic.
+R5. tags: exactly 10 to 15 lowercase strings.
+R6. text (on-screen caption): 1-3 WORDS ONLY. Dynamic contextual topic label (e.g., "TYPO HACK", "BANK BREACH"). Never placeholder text.
+R7. text_effect: Cycle across segments: "pop", "glitch", "typewriter", "bounce", "glow", "slide".
+R8. position: "top" for hook, "center" for body, "bottom" for button/CTA.
+R9. highlight_word: One exact word from text that renders WHITE (others render gold).
 
 Return ONLY the JSON object. No preamble, no markdown, no explanation.
 """

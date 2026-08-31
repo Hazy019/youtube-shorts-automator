@@ -580,21 +580,22 @@ def _fetch_pixabay(keyword, num_clips, max_duration=None):
         return []
 
 
-def get_background_videos(topic, keyword, backup_keywords=None, num_clips=3, max_duration=None):
+def get_background_videos(topic, keyword, backup_keywords=None, num_clips=5, max_duration=None, segment_queries=None):
     """
-    Route b-roll based on topic + Gemini keywords.
+    Route b-roll based on segment visual_queries + topic + Gemini keywords.
 
-    HIERARCHY (Hazy Insight — general & us-centric only):
-    1. Primary Pexels keyword (AI-generated, page 1-5)
-    2. Pixabay fallback (same keyword, fills remaining clips)
-    3. AI Backup Keywords (Pexels first, then Pixabay)
-    4. Premium AI Drive Folders (Science/History)
-    5. Categorized Fallback Pool
-    6. Randomized Premium Last Resort
+    HIERARCHY (Hazy Insight — visual sync):
+    1. High-precision Segment Visual Queries (1:1 visual match per sentence)
+    2. Primary Pexels keyword (AI-generated, page 1-5)
+    3. Pixabay fallback (same keyword, fills remaining clips)
+    4. AI Backup Keywords (Pexels first, then Pixabay)
+    5. Premium AI Drive Folders (Science/History)
+    6. Categorized Fallback Pool
     """
     # Cap at 10 — more clips = faster visual cuts for better retention
     num_clips = min(num_clips, 10)
     topic_lower = topic.lower()
+    urls = []
 
     # PRO MOVE: Individual Clip Trimming Optimization
     # Each background clip only plays for `total_duration / num_clips` (e.g. 42s / 10 = 4.2s).
@@ -603,11 +604,31 @@ def get_background_videos(topic, keyword, backup_keywords=None, num_clips=3, max
     if max_duration:
         max_duration = (max_duration / num_clips) + 3.0
 
+    # Route 1: High-precision Segment Visual Queries (Visual Sync)
+    if segment_queries and isinstance(segment_queries, list):
+        print(f"\n--- VISUAL SYNC: Fetching targeted b-roll for {len(segment_queries)} script segments ---")
+        for q in segment_queries:
+            if not q or len(urls) >= num_clips:
+                break
+            print(f"  Segment Query: '{q}'")
+            seg_urls = _fetch_pexels(q, 1, max_duration=max_duration)
+            if not seg_urls:
+                seg_urls = _fetch_pixabay(q, 1, max_duration=max_duration)
+            if seg_urls:
+                urls.extend(seg_urls)
+
+        if len(urls) >= num_clips:
+            print(f"  ✓ Visual Sync Complete: {len(urls)} tailored segment clips acquired.")
+            return urls[:num_clips]
+
     # Route 2: Primary Pexels keyword
-    urls = _fetch_pexels(keyword, num_clips, max_duration=max_duration)
-    if len(urls) >= num_clips:
-        print(f"  Pexels primary hit: {keyword}")
-        return urls
+    if len(urls) < num_clips:
+        needed = num_clips - len(urls)
+        more = _fetch_pexels(keyword, needed, max_duration=max_duration)
+        urls.extend(more)
+        if len(urls) >= num_clips:
+            print(f"  Pexels primary hit: {keyword}")
+            return urls[:num_clips]
 
     # Route 2b: Pixabay fallback for primary keyword
     if len(urls) < num_clips:

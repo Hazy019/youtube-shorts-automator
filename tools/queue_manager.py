@@ -75,11 +75,11 @@ def handle_youtube_ghosts(db: Client, before_id: int):
     print(f"✓ Processed {len(ghosts)} ghosts.")
 
 def cleanup_s3_storage(db: Client):
-    print("\nACTION: Cleaning up AWS S3 storage for SUCCESSFUL and SKIPPED_LIMIT TikTok uploads...")
+    print("\nACTION: Cleaning up AWS S3 storage for processed/disabled syndication uploads...")
     
-    # Fetch records with tiktok_status SUCCESS or SKIPPED_LIMIT and a non-null s3_video_url
-    # We also need to check facebook and instagram statuses to avoid deleting assets they still need.
-    resp = db.table("videos").select("id, s3_video_url, tiktok_status, facebook_status, instagram_status").in_("tiktok_status", ["SUCCESS", "SKIPPED_LIMIT"]).not_.is_("s3_video_url", "null").execute()
+    # Fetch records where s3_video_url is present and tiktok_status is finished or disabled
+    # Safe terminal statuses for TikTok: SUCCESS, SKIPPED_LIMIT, DISABLED, SKIPPED, FAILED
+    resp = db.table("videos").select("id, s3_video_url, tiktok_status, facebook_status, instagram_status").in_("tiktok_status", ["SUCCESS", "SKIPPED_LIMIT", "DISABLED", "SKIPPED", "FAILED"]).not_.is_("s3_video_url", "null").execute()
     data = resp.data
     
     if not data:

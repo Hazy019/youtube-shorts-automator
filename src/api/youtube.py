@@ -11,28 +11,37 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 from src.utils.discord import ping_error
 
-# Target publish slots in UTC (7AM ET = 11:00 UTC, 7PM ET = 23:00 UTC)
+# Target publish slots in UTC (7:00 AM EDT = 11:00 UTC, 7:00 PM EDT = 23:00 UTC)
 _PUBLISH_SLOTS_UTC = [11, 23]
+_MIN_PROCESSING_BUFFER_SECONDS = 2700  # Minimum 45 minutes buffer before public release
 
 def get_publish_at():
     """
-    Returns the next scheduled publish slot as ISO 8601 UTC string.
-    Slots: 11:00 UTC (7 AM ET) and 23:00 UTC (7 PM ET).
-    If all today’s slots have passed, returns tomorrow’s 11:00 UTC.
-    If the next slot is more than 2 hours away from now, returns it.
-    Returns None if we’re within 2 hours PAST a slot (manual run — publish immediately).
+    Returns the next optimal scheduled publish slot as an ISO 8601 UTC string.
+    High-traffic slots: 11:00 UTC (7:00 AM EDT) and 23:00 UTC (7:00 PM EDT).
+    
+    Guarantees a minimum processing buffer of 45 minutes so YouTube has sufficient
+    lead time to transcode 1080p, process subtitles, verify content, and index the
+    Short into recommendation clusters before going Public.
     """
     now = datetime.datetime.utcnow()
     today = now.date()
+    tomorrow = today + datetime.timedelta(days=1)
 
-    for hour in _PUBLISH_SLOTS_UTC:
-        slot = datetime.datetime(today.year, today.month, today.day, hour, 0, 0)
+    candidate_slots = []
+    for d in [today, tomorrow]:
+        for hour in _PUBLISH_SLOTS_UTC:
+            candidate_slots.append(datetime.datetime(d.year, d.month, d.day, hour, 0, 0))
+
+    # Find first slot that is at least MIN_PROCESSING_BUFFER into the future
+    for slot in candidate_slots:
         diff = (slot - now).total_seconds()
-        if 0 < diff <= 7200:   # slot is 0–2 hours in the future — schedule it
+        if diff >= _MIN_PROCESSING_BUFFER_SECONDS:
             return slot.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
-    # All today’s slots passed or already within 2h-past window — publish immediately
-    return None
+    # Fallback to tomorrow's earliest slot if loop somehow completes
+    fallback = datetime.datetime(tomorrow.year, tomorrow.month, tomorrow.day, _PUBLISH_SLOTS_UTC[0], 0, 0)
+    return fallback.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 # Rotated engagement CTAs — keyed by category to feel contextually human

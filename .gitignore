@@ -27,6 +27,11 @@ client_secrets.json
 token_*.json
 tiktok_cookies.*
 ig_session.json
+.tiktok_profile/
+.tiktok_real_profile/
+.tiktok*/
+*.pma
+.md
 
 # Web App Dependencies & Builds
 node_modules/

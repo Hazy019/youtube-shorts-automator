@@ -18,9 +18,11 @@ interface Segment {
   start: number;
   end: number;
   text: string;
+  role?: 'hook' | 'stakes' | 'build' | 'payoff' | 'button' | string;
   text_effect?: 'pop' | 'glitch' | 'typewriter' | 'bounce' | 'glow' | 'slide';
   position?: 'top' | 'center' | 'bottom';
   highlight_word?: string;
+  visual_query?: string;
 }
 
 interface EditorEffects {
@@ -279,7 +281,10 @@ const AnimatedText: React.FC<{ segment: Segment; effects: EditorEffects }> = ({
   const words = displayText.split(' ').filter(w => w.length > 0);
   const wordCount = words.length;
   const maxCharInWord = words.length > 0 ? Math.max(...words.map(w => w.length)) : 1;
-  const dynamicSize = maxCharInWord > 12 ? 80 : maxCharInWord > 9 ? 95 : wordCount > 2 ? 105 : 125;
+  let dynamicSize = maxCharInWord > 12 ? 80 : maxCharInWord > 9 ? 95 : wordCount > 2 ? 105 : 125;
+  if (segment.role === 'hook') {
+    dynamicSize = Math.round(dynamicSize * 1.12);
+  }
 
   const yPos = segment.position === 'top' ? '10%' : segment.position === 'bottom' ? '72%' : '48%';
 

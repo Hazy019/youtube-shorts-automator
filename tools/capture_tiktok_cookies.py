@@ -7,6 +7,11 @@ import asyncio
 import time
 from playwright.async_api import async_playwright
 
+# Always resolve to project root regardless of where this script is run from
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_JSON_OUT  = os.path.join(_PROJECT_ROOT, "tiktok_cookies.json")
+_TXT_OUT   = os.path.join(_PROJECT_ROOT, "tiktok_cookies.txt")
+
 async def capture_cookies():
     print("\n" + "="*50)
     print("      --- TIKTOK COOKIE CAPTURER v2 ---")
@@ -84,17 +89,17 @@ async def capture_cookies():
         else:
             print("\n[SUCCESS] All critical authentication cookies captured.")
 
-        # Save as JSON
-        with open("tiktok_cookies.json", "w", encoding="utf-8") as f:
+        # Save as JSON to project root
+        with open(_JSON_OUT, "w", encoding="utf-8") as f:
             json.dump(cookies, f, indent=2)
             
-        print("\nSUCCESS! Saved to tiktok_cookies.json")
+        print(f"\nSUCCESS! Saved to {_JSON_OUT}")
         
         # Also auto-convert to Netscape for tiktok-uploader
         try:
             from src.api.tiktok import _json_to_netscape
-            if _json_to_netscape("tiktok_cookies.json", "tiktok_cookies.txt"):
-                print("SUCCESS! Also converted and saved to tiktok_cookies.txt")
+            if _json_to_netscape(_JSON_OUT, _TXT_OUT):
+                print(f"SUCCESS! Also converted and saved to {_TXT_OUT}")
         except Exception as e:
             print(f"  [Note] Auto-conversion to .txt failed: {e}")
             print("  You may need to run bulk_tiktok_poster.py to trigger conversion.")

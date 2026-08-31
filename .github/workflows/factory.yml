@@ -2,8 +2,8 @@ name: Daily Hazy Chanel Factory
 
 on:
   schedule:
-    - cron: '30 10 * * *'   # 6:30 AM ET — renders 30min before 7:00 AM publish slot
-    - cron: '30 22 * * *'   # 6:30 PM ET — renders 30min before 7:00 PM publish slot
+    - cron: '0 9 * * *'    # 09:00 UTC (5:00 AM EDT) — 2h render lead before 11:00 UTC / 7:00 AM EDT peak slot
+    - cron: '0 21 * * *'   # 21:00 UTC (5:00 PM EDT) — 2h render lead before 23:00 UTC / 7:00 PM EDT peak slot
   workflow_dispatch:
 
 # Prevents minute waste if a manual re-run or workflow_dispatch fires during a live run
